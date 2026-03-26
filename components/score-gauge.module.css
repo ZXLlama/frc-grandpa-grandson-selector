@@ -1,0 +1,68 @@
+.gauge {
+  width: 9rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.1rem;
+}
+
+.svg {
+  width: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 16px 28px var(--glow));
+}
+
+.track {
+  fill: none;
+  stroke: var(--track);
+  stroke-width: 11;
+  stroke-linecap: round;
+}
+
+.value {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 11;
+  stroke-linecap: round;
+}
+
+.needle {
+  transform-origin: center;
+  transition: transform 180ms ease;
+}
+
+.needle line {
+  stroke: var(--accent);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+
+.dot {
+  fill: #071018;
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.score {
+  margin-top: -0.85rem;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--text);
+}
+
+.scale {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.scale span:nth-child(2) {
+  text-align: center;
+}
+
+.scale span:last-child {
+  text-align: right;
+}

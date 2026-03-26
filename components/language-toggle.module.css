@@ -1,0 +1,39 @@
+.wrapper {
+  display: inline-flex;
+  gap: 0.4rem;
+  padding: 0.35rem;
+  border: 1px solid rgba(119, 217, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(10, 18, 28, 0.72);
+  backdrop-filter: blur(12px);
+}
+
+.button,
+.active {
+  border: 0;
+  min-width: 3.75rem;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.95rem;
+  border-radius: 999px;
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.button:hover {
+  color: var(--text);
+}
+
+.active {
+  color: #071018;
+  background: linear-gradient(135deg, #84ff66, #2cf3c2);
+  box-shadow: 0 8px 24px rgba(44, 243, 194, 0.25);
+}
