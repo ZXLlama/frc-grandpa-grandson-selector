@@ -3,6 +3,7 @@ import type { ScoreCategory, ScoreMetricKey } from "@/lib/types";
 export const APP_NAME = "FRC爺爺孫子選擇器";
 export const MIN_FRC_YEAR = 1992;
 export const DEFAULT_FRC_YEAR = new Date().getFullYear();
+export const DEFAULT_REFERENCE_TEAM_KEY = "";
 
 export const SCORE_WEIGHTS: Record<ScoreMetricKey, number> = {
   ranking: 0.32,
@@ -97,19 +98,19 @@ export function scoreToGaugePercent(score: number): number {
 }
 
 export function getCategoryForScore(score: number): ScoreCategory {
-  if (score >= 7) {
+  if (score >= 6) {
     return "grandpa";
   }
 
-  if (score >= 3) {
+  if (score > 2) {
     return "father";
   }
 
-  if (score <= -7) {
+  if (score <= -6) {
     return "grandson";
   }
 
-  if (score <= -3) {
+  if (score < -2) {
     return "son";
   }
 

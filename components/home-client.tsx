@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-import { DEFAULT_FRC_YEAR, MIN_FRC_YEAR } from "@/lib/constants";
+import {
+  DEFAULT_FRC_YEAR,
+  DEFAULT_REFERENCE_TEAM_KEY,
+  MIN_FRC_YEAR,
+  clamp,
+  getCategoryForScore,
+} from "@/lib/constants";
 import {
   DEFAULT_LOCALE,
   getDictionary,
@@ -18,6 +24,7 @@ import type {
 
 import { EventSelector } from "@/components/event-selector";
 import { LanguageToggle } from "@/components/language-toggle";
+import { ReferenceTeamSelector } from "@/components/reference-team-selector";
 import { TeamScoreCard } from "@/components/team-score-card";
 import styles from "@/components/home-client.module.css";
 
@@ -62,6 +69,9 @@ export function HomeClient() {
   const [districtFilter, setDistrictFilter] = useState("all");
   const [competitionFilter, setCompetitionFilter] = useState("all");
   const [selectedEventKey, setSelectedEventKey] = useState("");
+  const [referenceTeamKey, setReferenceTeamKey] = useState(
+    DEFAULT_REFERENCE_TEAM_KEY,
+  );
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [scores, setScores] = useState<EventScoresResponse | null>(null);
@@ -90,7 +100,7 @@ export function HomeClient() {
         setEvents([]);
         setSelectedEventKey("");
         setEventsError(
-          error instanceof Error ? error.message : "Could not load the event list.",
+          error instanceof Error ? error.message : dictionary.eventLoadFailed,
         );
       } finally {
         if (!controller.signal.aborted) {
@@ -102,7 +112,7 @@ export function HomeClient() {
     void loadEvents();
 
     return () => controller.abort();
-  }, [year]);
+  }, [year, dictionary.eventLoadFailed]);
 
   const districtOptions = Array.from(
     new Map(
@@ -151,10 +161,28 @@ export function HomeClient() {
     }
   }, [filteredEvents, selectedEventKey]);
 
+  useEffect(() => {
+    if (!scores?.teams.length) {
+      setReferenceTeamKey(DEFAULT_REFERENCE_TEAM_KEY);
+      return;
+    }
+
+    if (
+      referenceTeamKey &&
+      !scores.teams.some((team) => team.teamKey === referenceTeamKey)
+    ) {
+      setReferenceTeamKey(DEFAULT_REFERENCE_TEAM_KEY);
+    }
+  }, [scores, referenceTeamKey]);
+
   const selectedEvent =
     filteredEvents.find((event) => event.key === selectedEventKey) ??
     events.find((event) => event.key === selectedEventKey) ??
     null;
+
+  const referenceTeam =
+    scores?.teams.find((team) => team.teamKey === referenceTeamKey) ?? null;
+  const useRelativeMode = Boolean(referenceTeam);
 
   async function handleAnalyze() {
     if (!selectedEventKey) {
@@ -163,6 +191,7 @@ export function HomeClient() {
 
     setIsAnalyzing(true);
     setScoresError(null);
+    setReferenceTeamKey(DEFAULT_REFERENCE_TEAM_KEY);
 
     try {
       const payload = await fetchJson<EventScoresResponse>(
@@ -180,31 +209,33 @@ export function HomeClient() {
     }
   }
 
+  function resetDerivedState() {
+    setScores(null);
+    setScoresError(null);
+    setReferenceTeamKey(DEFAULT_REFERENCE_TEAM_KEY);
+  }
+
   function handleYearChange(nextYear: number) {
     setYear(nextYear);
     setDistrictFilter("all");
     setCompetitionFilter("all");
     setSelectedEventKey("");
-    setScores(null);
-    setScoresError(null);
+    resetDerivedState();
   }
 
   function handleDistrictChange(value: string) {
     setDistrictFilter(value);
-    setScores(null);
-    setScoresError(null);
+    resetDerivedState();
   }
 
   function handleCompetitionChange(value: string) {
     setCompetitionFilter(value);
-    setScores(null);
-    setScoresError(null);
+    resetDerivedState();
   }
 
   function handleEventChange(eventKey: string) {
     setSelectedEventKey(eventKey);
-    setScores(null);
-    setScoresError(null);
+    resetDerivedState();
   }
 
   const eventMeta = selectedEvent
@@ -215,6 +246,20 @@ export function HomeClient() {
         formatEventLocation(selectedEvent),
       ].filter(Boolean)
     : [];
+
+  const displayedTeams =
+    scores?.teams.map((team) => {
+      const displayedScore = referenceTeam
+        ? clamp(team.score - referenceTeam.score, -10, 10)
+        : team.score;
+
+      return {
+        team,
+        displayedScore,
+        displayedCategory: getCategoryForScore(displayedScore),
+        isReference: referenceTeam?.teamKey === team.teamKey,
+      };
+    }) ?? [];
 
   return (
     <main className={styles.page}>
@@ -266,7 +311,7 @@ export function HomeClient() {
 
       <section className={styles.resultsSection}>
         <div className={styles.resultsHeader}>
-          <div>
+          <div className={styles.resultsMain}>
             <div className={styles.resultsTitle}>{dictionary.resultsTitle}</div>
             {selectedEvent ? (
               <>
@@ -294,6 +339,15 @@ export function HomeClient() {
           ) : null}
         </div>
 
+        {scores ? (
+          <ReferenceTeamSelector
+            dictionary={dictionary}
+            referenceTeamKey={referenceTeamKey}
+            teams={scores.teams}
+            onChange={setReferenceTeamKey}
+          />
+        ) : null}
+
         {scoresError ? (
           <div className={styles.messageCard}>{scoresError}</div>
         ) : isAnalyzing ? (
@@ -310,9 +364,25 @@ export function HomeClient() {
         ) : scores ? (
           scores.teams.length ? (
             <div className={styles.grid}>
-              {scores.teams.map((team) => (
-                <TeamScoreCard key={team.teamKey} team={team} locale={locale} />
-              ))}
+              {displayedTeams.map(
+                ({
+                  team,
+                  displayedScore,
+                  displayedCategory,
+                  isReference,
+                }) => (
+                  <TeamScoreCard
+                    key={team.teamKey}
+                    team={team}
+                    locale={locale}
+                    displayedScore={displayedScore}
+                    displayedCategory={displayedCategory}
+                    isReference={isReference}
+                    referenceTeam={referenceTeam}
+                    useRelativeMode={useRelativeMode}
+                  />
+                ),
+              )}
             </div>
           ) : (
             <div className={styles.messageCard}>{dictionary.noTeamsTitle}</div>

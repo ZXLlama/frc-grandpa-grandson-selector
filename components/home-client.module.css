@@ -98,6 +98,11 @@
   gap: 1rem;
 }
 
+.resultsMain {
+  display: grid;
+  gap: 0.25rem;
+}
+
 .resultsTitle {
   font-size: 0.82rem;
   font-weight: 700;

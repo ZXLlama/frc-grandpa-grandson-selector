@@ -1,0 +1,36 @@
+.card {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(132, 255, 102, 0.14);
+  border-radius: 1.15rem;
+  background: rgba(7, 18, 27, 0.72);
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.select {
+  width: 100%;
+  min-height: 3.2rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(119, 217, 255, 0.14);
+  border-radius: 1rem;
+  color: var(--text);
+  background:
+    linear-gradient(180deg, rgba(18, 29, 42, 0.96), rgba(10, 18, 28, 0.94));
+}
+
+.hint {
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}

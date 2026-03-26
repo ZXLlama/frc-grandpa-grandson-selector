@@ -2,7 +2,11 @@
 
 import type { CSSProperties } from "react";
 
-import { getCategoryTheme, getGaugeFill, formatSignedScore } from "@/lib/presenters";
+import {
+  formatSignedScore,
+  getCategoryTheme,
+  getGaugeFill,
+} from "@/lib/presenters";
 import type { ScoreCategory } from "@/lib/types";
 
 import styles from "@/components/score-gauge.module.css";
@@ -36,10 +40,7 @@ export function ScoreGauge({ score, category }: ScoreGaugeProps) {
           pathLength={100}
           strokeDasharray={`${fill} 100`}
         />
-        <g
-          className={styles.needle}
-          style={{ transform: `translate(60px, 60px) rotate(${rotation}deg)` }}
-        >
+        <g className={styles.needle} transform={`translate(60 60) rotate(${rotation})`}>
           <line x1="0" y1="0" x2="0" y2="-34" />
         </g>
         <circle className={styles.dot} cx="60" cy="60" r="5.5" />

@@ -1,5 +1,5 @@
 .gauge {
-  width: 9rem;
+  width: 9.2rem;
   display: grid;
   justify-items: center;
   gap: 0.1rem;
@@ -25,11 +25,6 @@
   stroke-linecap: round;
 }
 
-.needle {
-  transform-origin: center;
-  transition: transform 180ms ease;
-}
-
 .needle line {
   stroke: var(--accent);
   stroke-width: 3.5;
@@ -45,7 +40,7 @@
 .score {
   margin-top: -0.85rem;
   font-family: var(--font-display), sans-serif;
-  font-size: 1.6rem;
+  font-size: 1.7rem;
   font-weight: 700;
   letter-spacing: -0.04em;
   color: var(--text);

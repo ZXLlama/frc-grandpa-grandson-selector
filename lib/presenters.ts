@@ -74,8 +74,13 @@ export function buildTeamSummary(team: TeamScore, locale: Locale): string {
   }
 
   const rankedMetrics = [...team.breakdown]
-    .filter((metric) => metric.available && Math.abs(metric.contribution) >= 0.025)
-    .sort((left, right) => Math.abs(right.contribution) - Math.abs(left.contribution));
+    .filter(
+      (metric) => metric.available && Math.abs(metric.contribution) >= 0.025,
+    )
+    .sort(
+      (left, right) =>
+        Math.abs(right.contribution) - Math.abs(left.contribution),
+    );
 
   const parts: string[] = [];
 
@@ -99,4 +104,23 @@ export function buildTeamSummary(team: TeamScore, locale: Locale): string {
   }
 
   return parts.slice(0, 2).join(" · ");
+}
+
+export function buildRelativeComparisonText(input: {
+  locale: Locale;
+  referenceTeamNumber: number;
+  displayedScore: number;
+  isReference: boolean;
+}): string {
+  const { locale, referenceTeamNumber, displayedScore, isReference } = input;
+
+  if (isReference) {
+    return locale === "zh-TW"
+      ? "這支隊伍就是目前選定的比較基準"
+      : "This team is the selected comparison baseline";
+  }
+
+  return locale === "zh-TW"
+    ? `相對 #${referenceTeamNumber}：${formatSignedScore(displayedScore)}`
+    : `vs #${referenceTeamNumber}: ${formatSignedScore(displayedScore)}`;
 }
