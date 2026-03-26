@@ -18,6 +18,10 @@ export function ReferenceTeamSelector({
   teams,
   onChange,
 }: ReferenceTeamSelectorProps) {
+  const sortedTeams = [...teams].sort(
+    (left, right) => left.teamNumber - right.teamNumber,
+  );
+
   return (
     <div className={styles.card}>
       <label className={styles.field}>
@@ -28,7 +32,7 @@ export function ReferenceTeamSelector({
           onChange={(event) => onChange(event.target.value)}
         >
           <option value="">{dictionary.defaultReferenceOption}</option>
-          {teams.map((team) => (
+          {sortedTeams.map((team) => (
             <option key={team.teamKey} value={team.teamKey}>
               #{team.teamNumber} {team.teamName}
             </option>
