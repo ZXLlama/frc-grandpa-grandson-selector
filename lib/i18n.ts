@@ -7,7 +7,7 @@ const dictionaries = {
   "zh-TW": {
     appTitle: APP_NAME,
     appSubtitle:
-      "用 The Blue Alliance 的賽事資料，快速看出這場比賽誰像爺爺、爸爸、同輩、兒子或孫子。",
+      "用 The Blue Alliance 的賽事資料，快速看出這場比賽誰像爺爺、爸爸、平輩、兒子或孫子。",
     controlsTitle: "賽事分析",
     modelHint:
       "分數會綜合排名、勝率、近期狀態、平均聯盟得分、賽程強度與獎項／季後賽加權。資料少時會自動保守。",
@@ -32,7 +32,7 @@ const dictionaries = {
     emptyBody:
       "選完年份與賽事後，按下開始分析，就會用伺服器端 TBA 資料計算全場隊伍分數。",
     noTeamsTitle: "這場賽事目前還沒有可顯示的隊伍資料。",
-    noMatchesSummary: "目前還沒有已完成比賽，先維持同輩附近",
+    noMatchesSummary: "目前還沒有已完成比賽，先維持平輩附近",
     neutralSummary: "目前資料接近全場平均",
     lowDataSummary: "資料仍少，所以分數偏保守",
     sampleMatchesLabel: "已打",
@@ -41,7 +41,8 @@ const dictionaries = {
     rankLabel: "排名",
     unrankedLabel: "未排名",
     referenceModeLabel: "輩分基準",
-    referenceModeHint: "預設會依全場模型判定，也可以改用某支隊伍作為相對比較基準。",
+    referenceModeHint:
+      "預設會依全場模型判定，也可以改用某支隊伍作為相對比較基準。",
     defaultReferenceOption: "預設模式（全場基準）",
     referenceBadge: "基準隊伍",
     overallScoreLabel: "原始分數",
@@ -51,11 +52,11 @@ const dictionaries = {
       english: "EN",
     },
     categories: {
-      grandpa: "爺爺級",
-      father: "爸爸級",
+      grandpa: "爺爺",
+      father: "爸爸",
       peer: "平輩",
-      son: "兒子級",
-      grandson: "孫子級",
+      son: "兒子",
+      grandson: "孫子",
     } satisfies Record<ScoreCategory, string>,
     categoryCaptions: {
       grandpa: "明顯壓制全場",
@@ -152,11 +153,11 @@ const dictionaries = {
       english: "EN",
     },
     categories: {
-      grandpa: "Grandpa Tier",
-      father: "Father Tier",
-      peer: "Peer Tier",
-      son: "Son Tier",
-      grandson: "Grandson Tier",
+      grandpa: "Grandpa",
+      father: "Father",
+      peer: "Peer",
+      son: "Son",
+      grandson: "Grandson",
     } satisfies Record<ScoreCategory, string>,
     categoryCaptions: {
       grandpa: "Clearly controlling the field",
