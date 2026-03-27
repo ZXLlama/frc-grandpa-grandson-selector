@@ -15,14 +15,12 @@ import {
 import {
   DEFAULT_LOCALE,
   getDictionary,
-  getEventTierLabel,
   getEventTypeLabel,
 } from "@/lib/i18n";
 import {
   formatEventDateRange,
   formatEventLocation,
   formatMetaList,
-  formatSignedScore,
 } from "@/lib/presenters";
 import { sortDisplayedTeams, type DisplayedTeamEntry } from "@/lib/sorting";
 import type {
@@ -39,6 +37,7 @@ import type {
 
 import { AnalysisTabs } from "@/components/analysis-tabs";
 import { AwardsPanel } from "@/components/awards-panel";
+import { EventFieldStrength } from "@/components/event-field-strength";
 import { EventProgress } from "@/components/event-progress";
 import { EventSelector } from "@/components/event-selector";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -476,29 +475,7 @@ export function HomeClient() {
 
         {scores ? (
           <div className={styles.summaryDeck}>
-            <div className={styles.fieldCard}>
-              <div className={styles.fieldHeader}>
-                <div>
-                  <div className={styles.fieldLabel}>{dictionary.eventStrengthLabel}</div>
-                  <div className={styles.fieldTier}>
-                    {getEventTierLabel(locale, scores.event.fieldStrength.category)}
-                  </div>
-                </div>
-
-                <div className={styles.fieldScore}>
-                  {formatSignedScore(scores.event.fieldStrength.score)}
-                </div>
-              </div>
-
-              <p className={styles.fieldSummary}>
-                {
-                  dictionary.eventStrengthProfiles[
-                    scores.event.fieldStrength.profile
-                  ]
-                }
-              </p>
-              <p className={styles.fieldNote}>{dictionary.overallMethodNote}</p>
-            </div>
+            <EventFieldStrength event={scores.event} locale={locale} />
 
             <EventProgress event={scores.event} locale={locale} />
           </div>

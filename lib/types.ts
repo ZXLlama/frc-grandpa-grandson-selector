@@ -142,6 +142,7 @@ export interface EventFieldStrength {
   category: ScoreCategory;
   confidence: number;
   profile: EventStrengthProfile;
+  distribution: Record<ScoreCategory, number>;
   topAverage: number | null;
   depthAverage: number | null;
   median: number | null;

@@ -2,6 +2,7 @@ import { clamp, getCategoryForScore, roundTo } from "@/lib/constants";
 import type {
   EventFieldStrength,
   EventStrengthProfile,
+  ScoreCategory,
 } from "@/lib/types";
 import { mean, median } from "@/lib/scoring/math";
 
@@ -50,6 +51,13 @@ export function classifyEventStrength(
   input?: { isChampionshipFinals?: boolean },
 ): EventFieldStrength {
   const isChampionshipFinals = input?.isChampionshipFinals ?? false;
+  const emptyDistribution: Record<ScoreCategory, number> = {
+    grandpa: 0,
+    father: 0,
+    peer: 0,
+    son: 0,
+    grandson: 0,
+  };
 
   if (!teams.length) {
     return {
@@ -57,6 +65,7 @@ export function classifyEventStrength(
       category: isChampionshipFinals ? "grandpa" : "peer",
       confidence: 0,
       profile: isChampionshipFinals ? "championshipFinals" : "limitedData",
+      distribution: emptyDistribution,
       topAverage: null,
       depthAverage: null,
       median: null,
@@ -78,6 +87,14 @@ export function classifyEventStrength(
   const depthAverage = mean(qualificationScores.slice(depthStart, depthEnd));
   const lowerHalfAverage = mean(qualificationScores.slice(lowerHalfStart));
   const medianValue = median(qualificationScores);
+  const distribution = qualificationScores.reduce<Record<ScoreCategory, number>>(
+    (bucket, score) => {
+      const category = getCategoryForScore(score);
+      bucket[category] += 1 / teamCount;
+      return bucket;
+    },
+    { ...emptyDistribution },
+  );
   const topHeavyPenalty = Math.max(0, topAverage - depthAverage - 4) * 0.6;
   const weakFloorPenalty = Math.max(0, 0.4 - lowerHalfAverage) * 0.55;
   const rawFieldScore =
@@ -104,6 +121,13 @@ export function classifyEventStrength(
       teamCount,
       isChampionshipFinals,
     }),
+    distribution: {
+      grandpa: roundTo(distribution.grandpa, 3),
+      father: roundTo(distribution.father, 3),
+      peer: roundTo(distribution.peer, 3),
+      son: roundTo(distribution.son, 3),
+      grandson: roundTo(distribution.grandson, 3),
+    },
     topAverage: roundTo(topAverage, 1),
     depthAverage: roundTo(depthAverage, 1),
     median: roundTo(medianValue, 1),

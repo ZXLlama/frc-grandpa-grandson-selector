@@ -65,6 +65,8 @@ export interface Dictionary {
   sortByLabel: string;
   sortDirectionLabel: string;
   eventStrengthLabel: string;
+  fieldDistributionLabel: string;
+  finishedReviewLabel: string;
   overallMethodNote: string;
   expandDetailsLabel: string;
   collapseDetailsLabel: string;
@@ -154,7 +156,9 @@ const dictionaries: Record<Locale, Dictionary> = {
     awardsUnavailableMessage: "目前還沒有可顯示的 awards 資料。",
     sortByLabel: "排序方式",
     sortDirectionLabel: "方向",
-    eventStrengthLabel: "場次強度",
+    eventStrengthLabel: "賽區強度",
+    fieldDistributionLabel: "區段比例",
+    finishedReviewLabel: "完賽總評",
     overallMethodNote: "場次強度現在會更嚴格地看頂端、深度與分布，不再只看平均。",
     expandDetailsLabel: "點擊看更多",
     collapseDetailsLabel: "收起分析",
@@ -313,7 +317,9 @@ const dictionaries: Record<Locale, Dictionary> = {
     awardsUnavailableMessage: "No awards data is available yet.",
     sortByLabel: "Sort By",
     sortDirectionLabel: "Direction",
-    eventStrengthLabel: "Event Strength",
+    eventStrengthLabel: "Field Strength",
+    fieldDistributionLabel: "Tier Distribution",
+    finishedReviewLabel: "Finished Review",
     overallMethodNote:
       "Event strength is now stricter about top-end talent, depth, and distribution instead of leaning on averages.",
     expandDetailsLabel: "Tap for details",
@@ -476,7 +482,7 @@ export function getAlliancePositionLabel(input: {
       : `Alliance ${input.seed} backup`;
   }
 
-  if (input.slot === 1) {
+  if (input.slot === 0) {
     return input.locale === "zh-TW"
       ? `第 ${input.seed} 聯盟隊長`
       : `Alliance ${input.seed} captain`;
@@ -484,14 +490,14 @@ export function getAlliancePositionLabel(input: {
 
   if (input.slot === 2) {
     return input.locale === "zh-TW"
-      ? `第 ${input.seed} 聯盟第二順位`
-      : `Alliance ${input.seed} second slot`;
+      ? `第 ${input.seed} 聯盟第一順位`
+      : `Alliance ${input.seed} first pick`;
   }
 
   if (input.slot === 3) {
     return input.locale === "zh-TW"
-      ? `第 ${input.seed} 聯盟第三順位`
-      : `Alliance ${input.seed} third slot`;
+      ? `第 ${input.seed} 聯盟第二順位`
+      : `Alliance ${input.seed} second pick`;
   }
 
   return input.locale === "zh-TW"

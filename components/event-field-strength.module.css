@@ -1,0 +1,93 @@
+.card {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1px solid rgba(44, 243, 194, 0.18);
+  border-radius: 1.2rem;
+  background:
+    radial-gradient(circle at top right, rgba(44, 243, 194, 0.08), transparent 34%),
+    rgba(6, 16, 25, 0.76);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.label,
+.distributionLabel,
+.reviewLabel {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.tier {
+  margin-top: 0.25rem;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.2rem, 5vw, 1.85rem);
+  color: #d6fff4;
+}
+
+.summary,
+.reviewLine {
+  font-size: 0.94rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+
+.distributionBar {
+  display: flex;
+  overflow: hidden;
+  min-height: 0.82rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.segment {
+  min-width: 0.35rem;
+  height: 0.82rem;
+}
+
+.legend {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.legendItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.legendDot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+}
+
+.legendLabel {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.legendValue {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.reviewBlock {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.2rem;
+}
+
+.reviewList {
+  display: grid;
+  gap: 0.45rem;
+}

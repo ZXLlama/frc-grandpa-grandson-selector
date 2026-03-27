@@ -348,8 +348,8 @@ export function analyzePlayoffs(input: {
 
     if (aggregate.backupIn === teamKey) {
       return {
-        slot: null,
-        code: `${aggregate.seed}-B`,
+        slot: 4,
+        code: `${aggregate.seed}-4`,
       };
     }
 
@@ -362,7 +362,7 @@ export function analyzePlayoffs(input: {
       };
     }
 
-    const slot = pickIndex + 1;
+    const slot = pickIndex === 0 ? 0 : pickIndex + 1;
 
     return {
       slot,
