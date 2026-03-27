@@ -1,4 +1,5 @@
 .card {
+  position: relative;
   display: grid;
   gap: 0.75rem;
   padding: 1rem;
@@ -14,17 +15,31 @@
 }
 
 .cardReference {
-  border-color: rgba(119, 217, 255, 0.62);
+  border-color: rgba(119, 217, 255, 0.55);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 0 0 1px rgba(119, 217, 255, 0.2),
-    0 0 0 4px rgba(119, 217, 255, 0.08),
-    0 24px 46px rgba(0, 0, 0, 0.34);
+    0 0 0 1px rgba(119, 217, 255, 0.16),
+    0 18px 40px rgba(0, 0, 0, 0.32);
+}
+
+.cardPinned {
+  border-color: rgba(255, 200, 92, 0.52);
+  box-shadow:
+    0 0 0 1px rgba(255, 200, 92, 0.14),
+    0 18px 40px rgba(0, 0, 0, 0.32);
+}
+
+.cardPinned::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0.35rem;
+  border-radius: 1.6rem 0 0 1.6rem;
+  background: linear-gradient(180deg, #ffd56a 0%, #ff9e4f 100%);
 }
 
 .toggle {
   display: grid;
-  gap: 0.85rem;
+  gap: 0.95rem;
   padding: 0;
   border: 0;
   background: transparent;
@@ -32,47 +47,17 @@
   cursor: pointer;
 }
 
-.badgeRow {
+.headerRow {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  min-height: 2rem;
-}
-
-.referenceChip,
-.backupChip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2rem;
-  padding: 0.35rem 0.7rem;
-  border-radius: 999px;
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.referenceChip {
-  border: 1px solid rgba(119, 217, 255, 0.28);
-  background: rgba(119, 217, 255, 0.12);
-  color: #d8f5ff;
-}
-
-.backupChip {
-  border: 1px solid rgba(255, 179, 79, 0.26);
-  background: rgba(255, 179, 79, 0.12);
-  color: #fff0d5;
-}
-
-.top {
-  display: grid;
-  gap: 1rem;
-  align-items: start;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
 }
 
 .identity {
   min-width: 0;
   display: grid;
-  gap: 0.65rem;
+  gap: 0.7rem;
 }
 
 .teamNumber {
@@ -81,20 +66,26 @@
   justify-content: center;
   width: fit-content;
   max-width: 100%;
-  min-height: 4rem;
+  min-height: 3.75rem;
   padding: 0.7rem 1rem;
   border: 1px solid var(--border);
   border-radius: 1.15rem;
   background: var(--tint);
   color: var(--accent);
   font-family: var(--font-display), sans-serif;
-  font-size: clamp(1.6rem, 7vw, 2.45rem);
+  font-size: clamp(1.55rem, 7vw, 2.35rem);
   font-weight: 700;
   line-height: 0.96;
   letter-spacing: -0.05em;
   word-break: break-word;
   overflow-wrap: anywhere;
   box-shadow: 0 14px 34px var(--glow);
+}
+
+.nameBlock {
+  min-width: 0;
+  display: grid;
+  gap: 0.4rem;
 }
 
 .teamName {
@@ -105,14 +96,66 @@
   word-break: break-word;
 }
 
+.inlineMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.slotChip,
+.backupChip,
+.rankBadge,
+.pinnedMarker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.slotChip {
+  border: 1px solid rgba(119, 217, 255, 0.18);
+  background: rgba(119, 217, 255, 0.12);
+  color: #d9f7ff;
+}
+
+.backupChip {
+  border: 1px solid rgba(255, 179, 79, 0.24);
+  background: rgba(255, 179, 79, 0.12);
+  color: #fff1d8;
+}
+
+.slotText {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.rankBadge {
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-strong);
+}
+
+.mainRow {
+  display: grid;
+  gap: 1rem;
+}
+
 .gaugeWrap {
   justify-self: center;
   width: min(100%, 10rem);
 }
 
-.tierPanel {
+.summaryPanel {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.6rem;
   padding: 0.95rem 1rem;
   border: 1px solid var(--border);
   border-radius: 1.2rem;
@@ -125,12 +168,25 @@
     rgba(255, 255, 255, 0.025);
 }
 
+.categoryRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
 .tierLabel {
   font-family: var(--font-display), sans-serif;
   font-size: clamp(1.55rem, 5vw, 1.95rem);
   font-weight: 700;
   letter-spacing: -0.04em;
   color: var(--text-strong);
+}
+
+.pinnedMarker {
+  border: 1px solid rgba(255, 213, 106, 0.24);
+  background: rgba(255, 213, 106, 0.12);
+  color: #ffecb0;
 }
 
 .scoreRow {
@@ -143,19 +199,43 @@
 .scoreLabel,
 .relativeLine,
 .absoluteLine,
-.toggleHint {
+.toggleHint,
+.metric span,
+.detailsTitle,
+.detailsConfidence,
+.detailsFoot {
   font-size: 0.82rem;
   color: var(--text-dim);
 }
 
 .scoreValue {
   font-family: var(--font-display), sans-serif;
-  font-size: 1.5rem;
+  font-size: 1.55rem;
+  color: var(--text-strong);
+}
+
+.metricsRow {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.metric {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.metric strong {
+  font-size: 0.95rem;
   color: var(--text-strong);
 }
 
 .toggleHint {
-  padding-top: 0.2rem;
+  padding-top: 0.15rem;
 }
 
 .detailsShell {
@@ -172,7 +252,7 @@
   min-height: 0;
   overflow: hidden;
   display: grid;
-  gap: 0.7rem;
+  gap: 0.75rem;
 }
 
 .detailsHeader {
@@ -180,53 +260,41 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.8rem;
-  padding-top: 0.25rem;
+  padding-top: 0.2rem;
 }
 
 .detailsTitle {
-  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-dim);
-}
-
-.detailsConfidence {
-  font-size: 0.8rem;
-  line-height: 1.5;
-  color: var(--text-dim);
-  text-align: right;
 }
 
 .detailsMeta {
   font-size: 0.9rem;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--text-muted);
 }
 
-.summaryBlock {
+.analysisList {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.55rem;
+  margin: 0;
+  padding-left: 1.2rem;
 }
 
-.summary {
+.analysisItem {
   font-size: 0.92rem;
   line-height: 1.62;
   color: var(--text-muted);
 }
 
-.detailsFoot {
-  font-size: 0.82rem;
-  line-height: 1.55;
-  color: var(--text-dim);
-}
-
-@media (min-width: 640px) {
-  .top {
-    grid-template-columns: minmax(0, 1fr) minmax(9rem, 10rem);
+@media (min-width: 760px) {
+  .mainRow {
+    grid-template-columns: minmax(9.5rem, 10rem) minmax(0, 1fr);
+    align-items: center;
   }
 
   .gaugeWrap {
-    justify-self: end;
+    justify-self: start;
   }
 }

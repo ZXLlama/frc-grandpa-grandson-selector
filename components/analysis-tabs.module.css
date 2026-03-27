@@ -35,6 +35,6 @@
 
   .tab,
   .activeTab {
-    min-width: 11rem;
+    min-width: 9rem;
   }
 }

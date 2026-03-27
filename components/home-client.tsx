@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   DEFAULT_FRC_YEAR,
@@ -8,6 +8,7 @@ import {
   DEFAULT_SORT_DIRECTION,
   DEFAULT_SORT_KEY,
   MIN_FRC_YEAR,
+  PINNED_TEAM_STORAGE_KEY,
   clamp,
   getCategoryForScore,
 } from "@/lib/constants";
@@ -23,12 +24,10 @@ import {
   formatMetaList,
   formatSignedScore,
 } from "@/lib/presenters";
-import {
-  sortDisplayedTeams,
-  type DisplayedTeamEntry,
-} from "@/lib/sorting";
+import { sortDisplayedTeams, type DisplayedTeamEntry } from "@/lib/sorting";
 import type {
   AnalysisTab,
+  DashboardTab,
   EventOption,
   EventScoresResponse,
   EventsResponse,
@@ -39,8 +38,11 @@ import type {
 } from "@/lib/types";
 
 import { AnalysisTabs } from "@/components/analysis-tabs";
+import { AwardsPanel } from "@/components/awards-panel";
+import { EventProgress } from "@/components/event-progress";
 import { EventSelector } from "@/components/event-selector";
 import { LanguageToggle } from "@/components/language-toggle";
+import { PinnedTeamSelector } from "@/components/pinned-team-selector";
 import { ReferenceTeamSelector } from "@/components/reference-team-selector";
 import { TeamScoreCard } from "@/components/team-score-card";
 import { TeamSortControls } from "@/components/team-sort-controls";
@@ -78,11 +80,13 @@ function buildYearOptions() {
 }
 
 function getTabScore(team: TeamScore, analysisTab: AnalysisTab): number | null {
-  if (analysisTab === "playoff") {
-    return team.playoff?.score ?? null;
-  }
+  return analysisTab === "playoff"
+    ? team.playoff?.score ?? null
+    : team.qualification.score;
+}
 
-  return team.qualification.score;
+function isAnalysisTab(tab: DashboardTab): tab is AnalysisTab {
+  return tab === "qualification" || tab === "playoff";
 }
 
 const YEAR_OPTIONS = buildYearOptions();
@@ -98,16 +102,40 @@ export function HomeClient() {
   const [referenceTeamKey, setReferenceTeamKey] = useState(
     DEFAULT_REFERENCE_TEAM_KEY,
   );
+  const [pinnedTeamKey, setPinnedTeamKey] = useState("");
   const [sortKey, setSortKey] = useState<TeamSortKey>(DEFAULT_SORT_KEY);
   const [sortDirection, setSortDirection] = useState<SortDirection>(
     DEFAULT_SORT_DIRECTION,
   );
-  const [activeTab, setActiveTab] = useState<AnalysisTab>("qualification");
+  const [activeTab, setActiveTab] = useState<DashboardTab>("qualification");
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [scores, setScores] = useState<EventScoresResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [scoresError, setScoresError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(PINNED_TEAM_STORAGE_KEY);
+      if (stored) {
+        setPinnedTeamKey(stored);
+      }
+    } catch {
+      // Ignore storage failures and keep the app usable.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (pinnedTeamKey) {
+        window.localStorage.setItem(PINNED_TEAM_STORAGE_KEY, pinnedTeamKey);
+      } else {
+        window.localStorage.removeItem(PINNED_TEAM_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore storage failures and keep the app usable.
+    }
+  }, [pinnedTeamKey]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -214,74 +242,100 @@ export function HomeClient() {
       ])
     : null;
 
-  const availableTabs: AnalysisTab[] = scores?.event.isPlayoffOnly
-    ? ["playoff"]
-    : ["qualification", "playoff"];
-  const playoffStarted = (scores?.event.playoffMatches ?? 0) > 0;
-  const tabTeams =
-    scores?.teams.filter((team) => {
-      if (activeTab === "playoff") {
-        return playoffStarted && Boolean(team.playoff);
-      }
+  const availableTabs: DashboardTab[] = useMemo(() => {
+    if (!scores) {
+      return ["qualification", "playoff"];
+    }
 
-      return true;
-    }) ?? [];
+    const tabs: DashboardTab[] = scores.event.isPlayoffOnly
+      ? ["playoff"]
+      : ["qualification", "playoff"];
+
+    if (scores.event.isFinished) {
+      tabs.push("awards");
+    }
+
+    return tabs;
+  }, [scores]);
+
+  const playoffStarted = (scores?.event.playoffMatches ?? 0) > 0;
+  const currentAnalysisTab: AnalysisTab | null = isAnalysisTab(activeTab)
+    ? activeTab
+    : null;
+
+  const analysisTeams = useMemo(
+    () =>
+      currentAnalysisTab && scores
+        ? scores.teams.filter((team) => {
+            if (currentAnalysisTab === "playoff") {
+              return playoffStarted && Boolean(team.playoff);
+            }
+
+            return true;
+          })
+        : [],
+    [currentAnalysisTab, playoffStarted, scores],
+  );
 
   useEffect(() => {
-    const visibleTeams =
-      scores?.teams.filter((team) => {
-        if (activeTab === "playoff") {
-          return playoffStarted && Boolean(team.playoff);
-        }
+    if (!currentAnalysisTab) {
+      return;
+    }
 
-        return true;
-      }) ?? [];
-
-    if (!visibleTeams.length) {
+    if (!analysisTeams.length) {
       setReferenceTeamKey(DEFAULT_REFERENCE_TEAM_KEY);
       return;
     }
 
     if (
       referenceTeamKey &&
-      !visibleTeams.some((team) => team.teamKey === referenceTeamKey)
+      !analysisTeams.some((team) => team.teamKey === referenceTeamKey)
     ) {
       setReferenceTeamKey(DEFAULT_REFERENCE_TEAM_KEY);
     }
-  }, [activeTab, playoffStarted, referenceTeamKey, scores?.teams]);
+  }, [analysisTeams, currentAnalysisTab, referenceTeamKey]);
 
   const referenceTeam =
-    tabTeams.find((team) => team.teamKey === referenceTeamKey) ?? null;
-  const useRelativeMode = Boolean(referenceTeam);
-  const displayedTeams = sortDisplayedTeams(
-    tabTeams
-      .map((team) => {
-        const baseScore = getTabScore(team, activeTab);
+    analysisTeams.find((team) => team.teamKey === referenceTeamKey) ?? null;
+  const useRelativeMode = Boolean(referenceTeam && currentAnalysisTab);
+  const visiblePinnedTeamKey = scores?.teams.some(
+    (team) => team.teamKey === pinnedTeamKey,
+  )
+    ? pinnedTeamKey
+    : "";
 
-        if (baseScore === null) {
-          return null;
-        }
+  const displayedTeams =
+    currentAnalysisTab === null
+      ? []
+      : sortDisplayedTeams(
+          analysisTeams
+            .map((team) => {
+              const baseScore = getTabScore(team, currentAnalysisTab);
 
-        const referenceScore = referenceTeam
-          ? getTabScore(referenceTeam, activeTab)
-          : null;
-        const displayedScore =
-          referenceScore === null
-            ? baseScore
-            : clamp(baseScore - referenceScore, -10, 10);
+              if (baseScore === null) {
+                return null;
+              }
 
-        return {
-          team,
-          displayedScore,
-          displayedCategory: getCategoryForScore(displayedScore),
-          isReference: referenceTeam?.teamKey === team.teamKey,
-        };
-      })
-      .filter((entry): entry is DisplayedTeamEntry => entry !== null),
-    sortKey,
-    sortDirection,
-    activeTab,
-  );
+              const referenceScore = referenceTeam
+                ? getTabScore(referenceTeam, currentAnalysisTab)
+                : null;
+              const displayedScore =
+                referenceScore === null
+                  ? baseScore
+                  : clamp(baseScore - referenceScore, -10, 10);
+
+              return {
+                team,
+                displayedScore,
+                displayedCategory: getCategoryForScore(displayedScore),
+                isReference: referenceTeam?.teamKey === team.teamKey,
+              };
+            })
+            .filter((entry): entry is DisplayedTeamEntry => entry !== null),
+          sortKey,
+          sortDirection,
+          currentAnalysisTab,
+        );
 
   async function handleAnalyze() {
     if (!selectedEventKey) {
@@ -421,28 +475,32 @@ export function HomeClient() {
         </div>
 
         {scores ? (
-          <div className={styles.fieldCard}>
-            <div className={styles.fieldHeader}>
-              <div>
-                <div className={styles.fieldLabel}>{dictionary.eventStrengthLabel}</div>
-                <div className={styles.fieldTier}>
-                  {getEventTierLabel(locale, scores.event.fieldStrength.category)}
+          <div className={styles.summaryDeck}>
+            <div className={styles.fieldCard}>
+              <div className={styles.fieldHeader}>
+                <div>
+                  <div className={styles.fieldLabel}>{dictionary.eventStrengthLabel}</div>
+                  <div className={styles.fieldTier}>
+                    {getEventTierLabel(locale, scores.event.fieldStrength.category)}
+                  </div>
+                </div>
+
+                <div className={styles.fieldScore}>
+                  {formatSignedScore(scores.event.fieldStrength.score)}
                 </div>
               </div>
 
-              <div className={styles.fieldScore}>
-                {formatSignedScore(scores.event.fieldStrength.score)}
-              </div>
+              <p className={styles.fieldSummary}>
+                {
+                  dictionary.eventStrengthProfiles[
+                    scores.event.fieldStrength.profile
+                  ]
+                }
+              </p>
+              <p className={styles.fieldNote}>{dictionary.overallMethodNote}</p>
             </div>
 
-            <p className={styles.fieldSummary}>
-              {
-                dictionary.eventStrengthProfiles[
-                  scores.event.fieldStrength.profile
-                ]
-              }
-            </p>
-            <p className={styles.fieldNote}>{dictionary.overallMethodNote}</p>
+            <EventProgress event={scores.event} locale={locale} />
           </div>
         ) : null}
 
@@ -455,12 +513,18 @@ export function HomeClient() {
           />
         ) : null}
 
-        {scores && displayedTeams.length > 0 ? (
+        {scores && currentAnalysisTab && displayedTeams.length > 0 ? (
           <div className={styles.toolbarGrid}>
+            <PinnedTeamSelector
+              dictionary={dictionary}
+              pinnedTeamKey={visiblePinnedTeamKey}
+              teams={scores.teams}
+              onChange={setPinnedTeamKey}
+            />
             <ReferenceTeamSelector
               dictionary={dictionary}
               referenceTeamKey={referenceTeamKey}
-              teams={tabTeams}
+              teams={analysisTeams}
               onChange={setReferenceTeamKey}
             />
             <TeamSortControls
@@ -487,7 +551,9 @@ export function HomeClient() {
             ))}
           </div>
         ) : scores ? (
-          activeTab === "playoff" && !playoffStarted ? (
+          activeTab === "awards" ? (
+            <AwardsPanel awards={scores.awards} locale={locale} />
+          ) : activeTab === "playoff" && !playoffStarted ? (
             <div className={styles.messageCard}>
               {dictionary.playoffUnavailableMessage}
             </div>
@@ -508,9 +574,10 @@ export function HomeClient() {
                     key={`${activeTab}-${team.teamKey}`}
                     team={team}
                     locale={locale}
-                    analysisTab={activeTab}
+                    analysisTab={currentAnalysisTab as AnalysisTab}
                     displayedScore={displayedScore}
                     displayedCategory={displayedCategory}
+                    isPinned={team.teamKey === pinnedTeamKey}
                     isReference={isReference}
                     referenceTeam={referenceTeam}
                     useRelativeMode={useRelativeMode}
@@ -525,16 +592,6 @@ export function HomeClient() {
           <div className={styles.messageCard}>{dictionary.emptyBody}</div>
         )}
       </section>
-
-      <footer className={styles.footer}>
-        <a
-          href="https://www.thebluealliance.com/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          {dictionary.poweredBy}
-        </a>
-      </footer>
     </main>
   );
 }

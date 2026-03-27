@@ -18,7 +18,9 @@ import type {
   TbaRankings,
   TbaTeamSimple,
 } from "@/lib/server/tba";
+import { buildAwardsSummary, getEventFinishedState } from "@/lib/scoring/awards";
 import { classifyEventStrength } from "@/lib/scoring/event-strength";
+import { getEventProgress } from "@/lib/scoring/event-progress";
 import { analyzePlayoffs } from "@/lib/scoring/playoffs";
 import { analyzeQualification } from "@/lib/scoring/qualification";
 import {
@@ -162,7 +164,26 @@ export function computeEventScores(input: {
             : team.qualification.confidence,
       }))
       .filter((team) => team.confidence > 0),
+    {
+      isChampionshipFinals: isPlayoffOnlyEvent,
+    },
   );
+  const isFinished = getEventFinishedState({
+    awards: input.awards,
+    alliances: playoffs.alliances,
+    endDate: input.event.end_date,
+  });
+  const awards = buildAwardsSummary({
+    awards: input.awards,
+    alliances: playoffs.alliances,
+    teams: scoredTeams,
+  });
+  const progress = getEventProgress({
+    event: input.event,
+    playoffMatches: playoffs.playoffMatches.length,
+    isFinished,
+    teams: scoredTeams,
+  });
 
   return {
     event: {
@@ -170,6 +191,7 @@ export function computeEventScores(input: {
       name: input.event.name,
       eventType: input.event.event_type,
       isPlayoffOnly: isPlayoffOnlyEvent,
+      isFinished,
       districtDisplay:
         input.event.district?.display_name ??
         input.event.district?.abbreviation ??
@@ -184,8 +206,10 @@ export function computeEventScores(input: {
       qualificationMatches: qualification.qualificationMatches.length,
       playoffMatches: playoffs.playoffMatches.length,
       analyzedAt: new Date().toISOString(),
+      progress,
       fieldStrength,
     },
+    awards,
     teams: scoredTeams,
   };
 }

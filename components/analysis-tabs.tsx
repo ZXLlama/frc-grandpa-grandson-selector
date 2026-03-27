@@ -1,15 +1,15 @@
 "use client";
 
 import type { Dictionary } from "@/lib/i18n";
-import type { AnalysisTab } from "@/lib/types";
+import type { DashboardTab } from "@/lib/types";
 
 import styles from "@/components/analysis-tabs.module.css";
 
 type AnalysisTabsProps = {
-  activeTab: AnalysisTab;
-  availableTabs: AnalysisTab[];
+  activeTab: DashboardTab;
+  availableTabs: DashboardTab[];
   dictionary: Dictionary;
-  onChange: (tab: AnalysisTab) => void;
+  onChange: (tab: DashboardTab) => void;
 };
 
 export function AnalysisTabs({

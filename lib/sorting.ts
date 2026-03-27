@@ -39,12 +39,15 @@ export function sortDisplayedTeams(
     if (sortKey === "ranking") {
       const leftRank =
         analysisTab === "playoff"
-          ? left.team.playoff?.seed ?? left.team.ranking?.rank ?? Number.POSITIVE_INFINITY
+          ? left.team.playoff?.seed ?? Number.POSITIVE_INFINITY
           : left.team.ranking?.rank ?? Number.POSITIVE_INFINITY;
       const rightRank =
         analysisTab === "playoff"
-          ? right.team.playoff?.seed ?? right.team.ranking?.rank ?? Number.POSITIVE_INFINITY
+          ? right.team.playoff?.seed ?? Number.POSITIVE_INFINITY
           : right.team.ranking?.rank ?? Number.POSITIVE_INFINITY;
+      const leftSlot = left.team.playoff?.slot ?? (left.team.playoff?.isBackup ? 4 : 9);
+      const rightSlot =
+        right.team.playoff?.slot ?? (right.team.playoff?.isBackup ? 4 : 9);
 
       if (!Number.isFinite(leftRank) && !Number.isFinite(rightRank)) {
         return left.team.teamNumber - right.team.teamNumber;
@@ -59,7 +62,15 @@ export function sortDisplayedTeams(
       }
 
       const comparison = compareNumbers(leftRank, rightRank, direction);
-      return comparison || Number(left.team.teamNumber) - Number(right.team.teamNumber);
+      if (comparison) {
+        return comparison;
+      }
+
+      if (analysisTab === "playoff" && leftSlot !== rightSlot) {
+        return compareNumbers(leftSlot, rightSlot, direction);
+      }
+
+      return Number(left.team.teamNumber) - Number(right.team.teamNumber);
     }
 
     const comparison = compareNumbers(

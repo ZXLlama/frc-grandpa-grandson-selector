@@ -1,8 +1,9 @@
 import { CATEGORY_THEME, clamp, scoreToGaugePercent } from "@/lib/constants";
-import { getDictionary } from "@/lib/i18n";
+import { getAlliancePositionLabel, getDictionary } from "@/lib/i18n";
 import type {
   EventOption,
   Locale,
+  PlayoffContext,
   ScoreCategory,
   TeamRecord,
 } from "@/lib/types";
@@ -92,4 +93,20 @@ export function buildRelativeComparisonText(input: {
   return dictionary.relativeComparisonVs
     .replace("%TEAM%", String(input.referenceTeamNumber))
     .replace("%SCORE%", formatSignedScore(input.displayedScore));
+}
+
+export function getPlayoffPositionText(
+  locale: Locale,
+  playoff: PlayoffContext | null,
+): string | null {
+  if (!playoff) {
+    return null;
+  }
+
+  return getAlliancePositionLabel({
+    locale,
+    seed: playoff.seed,
+    slot: playoff.slot,
+    isBackup: playoff.isBackup,
+  });
 }

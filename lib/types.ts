@@ -14,6 +14,7 @@ export type TeamSortKey = "score" | "teamNumber" | "ranking";
 export type SortDirection = "asc" | "desc";
 
 export type AnalysisTab = "qualification" | "playoff";
+export type DashboardTab = AnalysisTab | "awards";
 
 export type PlayoffFinish =
   | "none"
@@ -24,11 +25,25 @@ export type PlayoffFinish =
   | "champion";
 
 export type EventStrengthProfile =
+  | "championshipFinals"
   | "balancedDepth"
   | "eliteDepth"
   | "topHeavy"
   | "softField"
   | "limitedData";
+
+export type EventProgressStage =
+  | "qualificationEarly"
+  | "qualificationMidLate"
+  | "playoffs"
+  | "finished";
+
+export type ChampionshipQualifierReason =
+  | "winnerCaptain"
+  | "winnerFirstPick"
+  | "impactAward"
+  | "engineeringInspirationAward"
+  | "rookieAllStarAward";
 
 export interface EventOption {
   key: string;
@@ -86,6 +101,8 @@ export interface PlayoffContext {
   allianceBased: true;
   allianceLabel: string | null;
   seed: number | null;
+  slot: number | null;
+  positionCode: string | null;
   isBackup: boolean;
   matchesPlayed: number;
   record: TeamRecord;
@@ -130,11 +147,43 @@ export interface EventFieldStrength {
   median: number | null;
 }
 
+export interface EventProgress {
+  stage: EventProgressStage;
+  percent: number;
+  qualificationCompletion: number | null;
+  playoffCompletion: number | null;
+}
+
+export interface ChampionshipQualifier {
+  teamKey: string;
+  teamNumber: number;
+  teamName: string;
+  reasons: ChampionshipQualifierReason[];
+}
+
+export interface AwardRecipientSummary {
+  teamKey: string | null;
+  teamNumber: number | null;
+  teamName: string | null;
+  awardee: string | null;
+}
+
+export interface AwardSummary {
+  name: string;
+  recipients: AwardRecipientSummary[];
+}
+
+export interface EventAwardsSummary {
+  championshipQualifiers: ChampionshipQualifier[];
+  allAwards: AwardSummary[];
+}
+
 export interface EventSummary {
   key: string;
   name: string;
   eventType: number;
   isPlayoffOnly: boolean;
+  isFinished: boolean;
   districtDisplay: string | null;
   location: string | null;
   startDate: string | null;
@@ -145,10 +194,12 @@ export interface EventSummary {
   qualificationMatches: number;
   playoffMatches: number;
   analyzedAt: string;
+  progress: EventProgress;
   fieldStrength: EventFieldStrength;
 }
 
 export interface EventScoresResponse {
   event: EventSummary;
+  awards: EventAwardsSummary;
   teams: TeamScore[];
 }

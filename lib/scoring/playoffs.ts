@@ -16,6 +16,9 @@ type AllianceAggregate = {
   key: string;
   label: string | null;
   seed: number | null;
+  picks: string[];
+  backupIn: string | null;
+  backupOut: string | null;
   members: Set<string>;
   backupTeams: Set<string>;
   matchesPlayed: number;
@@ -27,6 +30,24 @@ type AllianceAggregate = {
   finalWins: number;
   finalLosses: number;
   status: string | null;
+};
+
+export type PlayoffAllianceSummary = {
+  key: string;
+  label: string | null;
+  seed: number | null;
+  picks: string[];
+  backupIn: string | null;
+  backupOut: string | null;
+  members: string[];
+  matchesPlayed: number;
+  record: TeamRecord;
+  winRate: number | null;
+  advancement: PlayoffFinish;
+  score: number | null;
+  confidence: number;
+  consistency: number | null;
+  wonEvent: boolean;
 };
 
 const LEVEL_ORDER: Record<string, number> = {
@@ -121,6 +142,7 @@ export function analyzePlayoffs(input: {
   matches: TbaMatchSimple[];
   alliances: TbaAlliance[] | null;
 }): {
+  alliances: PlayoffAllianceSummary[];
   playoffMatches: TbaMatchSimple[];
   results: Map<string, PlayoffContext>;
 } {
@@ -143,6 +165,9 @@ export function analyzePlayoffs(input: {
       key: allianceKey,
       label: alliance.name ?? (seed ? `Alliance ${seed}` : null),
       seed,
+      picks: [...(alliance.picks ?? [])],
+      backupIn: alliance.backup?.in ?? null,
+      backupOut: alliance.backup?.out ?? null,
       members: new Set(members),
       backupTeams: new Set(
         alliance.backup?.in && teamSet.has(alliance.backup.in)
@@ -188,6 +213,9 @@ export function analyzePlayoffs(input: {
         key: fallbackKey,
         label: null,
         seed: null,
+        picks: [...cleanedTeamKeys],
+        backupIn: null,
+        backupOut: null,
         members: new Set(cleanedTeamKeys),
         backupTeams: new Set<string>(),
         matchesPlayed: 0,
@@ -308,6 +336,39 @@ export function analyzePlayoffs(input: {
 
   const normalizedSignals = normalizeDistribution(rawSignals, 1.1);
   const results = new Map<string, PlayoffContext>();
+  const alliances: PlayoffAllianceSummary[] = [];
+
+  const getSlotForTeam = (
+    aggregate: AllianceAggregate,
+    teamKey: string,
+  ): { slot: number | null; code: string | null } => {
+    if (aggregate.seed === null) {
+      return { slot: null, code: null };
+    }
+
+    if (aggregate.backupIn === teamKey) {
+      return {
+        slot: null,
+        code: `${aggregate.seed}-B`,
+      };
+    }
+
+    const pickIndex = aggregate.picks.findIndex((pick) => pick === teamKey);
+
+    if (pickIndex < 0) {
+      return {
+        slot: null,
+        code: `${aggregate.seed}-?`,
+      };
+    }
+
+    const slot = pickIndex + 1;
+
+    return {
+      slot,
+      code: `${aggregate.seed}-${slot}`,
+    };
+  };
 
   for (const aggregate of aggregates.values()) {
     const record = toRecord(aggregate);
@@ -329,16 +390,40 @@ export function analyzePlayoffs(input: {
             clamp(normalizedSignal * 10 * (0.34 + confidence * 0.66), -10, 10),
             1,
           );
+    const wonEvent =
+      advancement === "champion" || aggregate.status?.toLowerCase() === "won";
+
+    alliances.push({
+      key: aggregate.key,
+      label: aggregate.label,
+      seed: aggregate.seed,
+      picks: aggregate.picks,
+      backupIn: aggregate.backupIn,
+      backupOut: aggregate.backupOut,
+      members: [...aggregate.members].sort(),
+      matchesPlayed: aggregate.matchesPlayed,
+      record,
+      winRate,
+      advancement,
+      score,
+      confidence,
+      consistency,
+      wonEvent,
+    });
 
     for (const teamKey of aggregate.members) {
       if (!teamSet.has(teamKey)) {
         continue;
       }
 
+      const slotInfo = getSlotForTeam(aggregate, teamKey);
+
       results.set(teamKey, {
         allianceBased: true,
         allianceLabel: aggregate.label,
         seed: aggregate.seed,
+        slot: slotInfo.slot,
+        positionCode: slotInfo.code,
         isBackup: aggregate.backupTeams.has(teamKey),
         matchesPlayed: aggregate.matchesPlayed,
         record,
@@ -353,6 +438,11 @@ export function analyzePlayoffs(input: {
   }
 
   return {
+    alliances: alliances.sort((left, right) => {
+      const leftSeed = left.seed ?? Number.POSITIVE_INFINITY;
+      const rightSeed = right.seed ?? Number.POSITIVE_INFINITY;
+      return leftSeed - rightSeed;
+    }),
     playoffMatches,
     results,
   };

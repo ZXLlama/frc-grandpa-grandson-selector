@@ -2,20 +2,16 @@
 
 import { useState, type CSSProperties } from "react";
 
-import {
-  getConfidenceLevelLabel,
-  getDictionary,
-  getPlayoffAdvancementLabel,
-} from "@/lib/i18n";
+import { getDictionary } from "@/lib/i18n";
 import { buildTeamInsights } from "@/lib/insights";
 import {
   buildRelativeComparisonText,
   formatConfidence,
-  formatPercent,
   formatRecord,
   formatSignedScore,
   formatMetaList,
   getCategoryTheme,
+  getPlayoffPositionText,
 } from "@/lib/presenters";
 import type { AnalysisTab, Locale, ScoreCategory, TeamScore } from "@/lib/types";
 
@@ -28,6 +24,7 @@ type TeamScoreCardProps = {
   analysisTab: AnalysisTab;
   displayedScore: number;
   displayedCategory: ScoreCategory;
+  isPinned: boolean;
   isReference: boolean;
   referenceTeam: TeamScore | null;
   useRelativeMode: boolean;
@@ -39,6 +36,7 @@ export function TeamScoreCard({
   analysisTab,
   displayedScore,
   displayedCategory,
+  isPinned,
   isReference,
   referenceTeam,
   useRelativeMode,
@@ -53,28 +51,10 @@ export function TeamScoreCard({
     analysisTab === "playoff"
       ? dictionary.playoffContextLabel
       : dictionary.qualificationStrengthLabel;
-  const detailMeta =
-    analysisTab === "playoff"
-      ? formatMetaList([
-          team.playoff?.seed ? `${dictionary.seedLabel} #${team.playoff.seed}` : null,
-          team.playoff
-            ? getPlayoffAdvancementLabel(locale, team.playoff.advancement)
-            : null,
-          team.playoff?.matchesPlayed ? formatRecord(team.playoff.record) : null,
-        ])
-      : formatMetaList([
-          team.ranking ? `${dictionary.rankLabel} #${team.ranking.rank}` : dictionary.unrankedLabel,
-          formatRecord(team.qualification.record),
-          formatPercent(team.qualification.winRate),
-        ]);
   const currentConfidence =
     analysisTab === "playoff"
       ? team.playoff?.confidence ?? 0
       : team.qualification.confidence;
-  const currentConfidenceLevel =
-    analysisTab === "playoff"
-      ? team.playoff?.confidenceLevel ?? team.confidenceLevel
-      : team.qualification.confidenceLevel;
   const relativeLine =
     useRelativeMode && referenceTeam
       ? buildRelativeComparisonText({
@@ -84,6 +64,26 @@ export function TeamScoreCard({
           isReference,
         })
       : null;
+  const playoffPositionText = getPlayoffPositionText(locale, team.playoff);
+  const topRightBadge =
+    analysisTab === "qualification"
+      ? team.ranking
+        ? `#${team.ranking.rank}`
+        : dictionary.unrankedLabel
+      : team.playoff?.positionCode ??
+        (team.playoff?.seed ? `#${team.playoff.seed}` : dictionary.noPlayoffDataLabel);
+  const detailMeta =
+    analysisTab === "playoff"
+      ? formatMetaList([
+          team.playoff?.positionCode,
+          playoffPositionText,
+          team.playoff ? formatRecord(team.playoff.record) : null,
+        ])
+      : formatMetaList([
+          team.ranking ? `${dictionary.rankLabel} #${team.ranking.rank}` : dictionary.unrankedLabel,
+          formatRecord(team.qualification.record),
+          `${dictionary.confidenceLabel} ${formatConfidence(team.qualification.confidence)}`,
+        ]);
   const cssVars = {
     "--accent": theme.accent,
     "--tint": theme.tint,
@@ -94,7 +94,13 @@ export function TeamScoreCard({
 
   return (
     <article
-      className={`${styles.card} ${isReference ? styles.cardReference : ""}`.trim()}
+      className={[
+        styles.card,
+        isReference ? styles.cardReference : "",
+        isPinned ? styles.cardPinned : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       style={cssVars}
     >
       <button
@@ -103,50 +109,83 @@ export function TeamScoreCard({
         aria-expanded={isExpanded}
         onClick={() => setIsExpanded((value) => !value)}
       >
-        <div className={styles.badgeRow}>
-          {isReference ? (
-            <span className={styles.referenceChip}>{dictionary.referenceBadge}</span>
-          ) : null}
-          {analysisTab === "playoff" && team.playoff?.isBackup ? (
-            <span className={styles.backupChip}>{dictionary.backupLabel}</span>
-          ) : null}
-        </div>
-
-        <div className={styles.top}>
+        <div className={styles.headerRow}>
           <div className={styles.identity}>
             <div className={styles.teamNumber}>#{team.teamNumber}</div>
-            <div className={styles.teamName}>{team.teamName}</div>
+            <div className={styles.nameBlock}>
+              <div className={styles.teamName}>{team.teamName}</div>
+              {analysisTab === "playoff" && team.playoff?.positionCode ? (
+                <div className={styles.inlineMeta}>
+                  <span className={styles.slotChip}>{team.playoff.positionCode}</span>
+                  {playoffPositionText ? (
+                    <span className={styles.slotText}>{playoffPositionText}</span>
+                  ) : null}
+                  {team.playoff.isBackup ? (
+                    <span className={styles.backupChip}>{dictionary.backupLabel}</span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
 
+          <div className={styles.rankBadge}>{topRightBadge}</div>
+        </div>
+
+        <div className={styles.mainRow}>
           <div className={styles.gaugeWrap}>
             <ScoreGauge score={displayedScore} category={displayedCategory} />
           </div>
-        </div>
 
-        <div className={styles.tierPanel}>
-          <div className={styles.tierLabel}>
-            {dictionary.categories[displayedCategory]}
-          </div>
-          <div className={styles.scoreRow}>
-            <span className={styles.scoreLabel}>
-              {useRelativeMode ? dictionary.relativeScoreLabel : currentLabel}
-            </span>
-            <strong className={styles.scoreValue}>
-              {formatSignedScore(displayedScore)}
-            </strong>
-          </div>
-          {relativeLine ? (
-            <div className={styles.relativeLine}>{relativeLine}</div>
-          ) : null}
-          {useRelativeMode ? (
-            <div className={styles.absoluteLine}>
-              {currentLabel} {formatSignedScore(currentScore)}
+          <div className={styles.summaryPanel}>
+            <div className={styles.categoryRow}>
+              <div className={styles.tierLabel}>
+                {dictionary.categories[displayedCategory]}
+              </div>
+              {isPinned ? (
+                <span className={styles.pinnedMarker}>{dictionary.pinnedBadge}</span>
+              ) : null}
             </div>
-          ) : null}
-          <div className={styles.toggleHint}>
-            {isExpanded
-              ? dictionary.collapseDetailsLabel
-              : dictionary.expandDetailsLabel}
+
+            <div className={styles.scoreRow}>
+              <span className={styles.scoreLabel}>
+                {useRelativeMode ? dictionary.relativeScoreLabel : currentLabel}
+              </span>
+              <strong className={styles.scoreValue}>
+                {formatSignedScore(displayedScore)}
+              </strong>
+            </div>
+
+            {relativeLine ? (
+              <div className={styles.relativeLine}>{relativeLine}</div>
+            ) : null}
+            {useRelativeMode ? (
+              <div className={styles.absoluteLine}>
+                {currentLabel} {formatSignedScore(currentScore)}
+              </div>
+            ) : null}
+
+            <div className={styles.metricsRow}>
+              <div className={styles.metric}>
+                <span>{dictionary.recordShortLabel}</span>
+                <strong>
+                  {formatRecord(
+                    analysisTab === "playoff" && team.playoff
+                      ? team.playoff.record
+                      : team.qualification.record,
+                  )}
+                </strong>
+              </div>
+              <div className={styles.metric}>
+                <span>{dictionary.confidenceShortLabel}</span>
+                <strong>{formatConfidence(currentConfidence)}</strong>
+              </div>
+            </div>
+
+            <div className={styles.toggleHint}>
+              {isExpanded
+                ? dictionary.collapseDetailsLabel
+                : dictionary.expandDetailsLabel}
+            </div>
           </div>
         </div>
       </button>
@@ -158,20 +197,22 @@ export function TeamScoreCard({
           <div className={styles.detailsHeader}>
             <div className={styles.detailsTitle}>{dictionary.scoutingNotesLabel}</div>
             <div className={styles.detailsConfidence}>
-              {dictionary.confidenceLabel} {formatConfidence(currentConfidence)} ·{" "}
-              {getConfidenceLevelLabel(locale, currentConfidenceLevel)}
+              {dictionary.confidenceLabel} {formatConfidence(currentConfidence)}
             </div>
           </div>
 
           <div className={styles.detailsMeta}>{detailMeta}</div>
 
-          <div className={styles.summaryBlock}>
+          <ol className={styles.analysisList}>
             {insights.map((insight, index) => (
-              <p key={`${team.teamKey}-${analysisTab}-${index}`} className={styles.summary}>
+              <li
+                key={`${team.teamKey}-${analysisTab}-${index}`}
+                className={styles.analysisItem}
+              >
                 {insight}
-              </p>
+              </li>
             ))}
-          </div>
+          </ol>
 
           {analysisTab === "playoff" ? (
             <div className={styles.detailsFoot}>{dictionary.playoffAllianceNote}</div>

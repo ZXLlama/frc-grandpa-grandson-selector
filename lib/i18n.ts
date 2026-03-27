@@ -1,7 +1,9 @@
 import { APP_NAME, getEventTypeKey } from "@/lib/constants";
 import type {
-  AnalysisTab,
+  ChampionshipQualifierReason,
   ConfidenceLevel,
+  DashboardTab,
+  EventProgressStage,
   EventStrengthProfile,
   Locale,
   PlayoffFinish,
@@ -38,26 +40,28 @@ export interface Dictionary {
   emptyTitle: string;
   emptyBody: string;
   noTeamsTitle: string;
-  sampleMatchesLabel: string;
   recordLabel: string;
   confidenceLabel: string;
-  confidenceLevelLabel: string;
   rankLabel: string;
   unrankedLabel: string;
   referenceModeLabel: string;
   referenceModeHint: string;
   defaultReferenceOption: string;
-  referenceBadge: string;
+  pinnedModeLabel: string;
+  pinnedModeHint: string;
+  defaultPinnedOption: string;
+  pinnedBadge: string;
   overallScoreLabel: string;
   relativeScoreLabel: string;
   qualificationStrengthLabel: string;
   playoffContextLabel: string;
   playoffAllianceNote: string;
   seedLabel: string;
+  slotLabel: string;
   noPlayoffDataLabel: string;
-  noPlayoffMatchesYet: string;
   playoffUnavailableMessage: string;
   qualificationNotApplicableMessage: string;
+  awardsUnavailableMessage: string;
   sortByLabel: string;
   sortDirectionLabel: string;
   eventStrengthLabel: string;
@@ -66,11 +70,20 @@ export interface Dictionary {
   collapseDetailsLabel: string;
   scoutingNotesLabel: string;
   backupLabel: string;
+  progressLabel: string;
+  awardsTitle: string;
+  championshipQualifiersTitle: string;
+  allAwardsTitle: string;
+  qualifiedByLabel: string;
+  noAwardRecipients: string;
+  rankingShortLabel: string;
+  recordShortLabel: string;
+  confidenceShortLabel: string;
   language: {
     traditionalChinese: string;
     english: string;
   };
-  analysisTabs: Record<AnalysisTab, string>;
+  analysisTabs: Record<DashboardTab, string>;
   categories: Record<ScoreCategory, string>;
   categoryCaptions: Record<ScoreCategory, string>;
   eventTierLabels: Record<ScoreCategory, string>;
@@ -79,26 +92,9 @@ export interface Dictionary {
   sortDirections: Record<SortDirection, string>;
   eventStrengthProfiles: Record<EventStrengthProfile, string>;
   playoffAdvancement: Record<PlayoffFinish, string>;
+  progressStages: Record<EventProgressStage, string>;
+  qualifierReasons: Record<ChampionshipQualifierReason, string>;
   eventTypes: Record<string, string>;
-  insights: {
-    noQualificationData: string;
-    highRankSoftSchedule: string;
-    underseededStrongMetrics: string;
-    consistentQualification: string;
-    stableContribution: string;
-    risingForm: string;
-    slippingForm: string;
-    toughSchedule: string;
-    softSchedule: string;
-    volatilePerformance: string;
-    playoffAllianceBoost: string;
-    playoffAllianceValidated: string;
-    playoffSeedOnly: string;
-    playoffNoMatches: string;
-    lowConfidence: string;
-    mediumConfidence: string;
-    neutral: string;
-  };
   relativeComparisonSelf: string;
   relativeComparisonVs: string;
 }
@@ -107,16 +103,16 @@ const dictionaries: Record<Locale, Dictionary> = {
   "zh-TW": {
     appTitle: APP_NAME,
     appSubtitle:
-      "使用 The Blue Alliance 的即時賽事資料，把積分賽與淘汰賽分開看，快速找出誰是爺爺、爸爸、平輩、兒子、孫子。",
+      "用 The Blue Alliance 即時資料，把積分賽、淘汰賽與 awards 分開看，快速抓出這場到底誰硬、誰被吹太大。",
     controlsTitle: "事件分析",
     modelHint:
-      "積分賽與淘汰賽分開評分。積分賽會校正賽程、搭檔與對手強度、近期狀態與穩定度；淘汰賽則只看 alliance context，不把 eliminations 當成 qualification 重算。",
+      "積分賽只看積分賽，淘汰賽只看聯盟脈絡。名次、賽程、穩定度、聯盟位置與 awards 會分開處理，不再亂混成一坨。",
     poweredBy: "Powered by The Blue Alliance",
     yearLabel: "年份",
-    districtLabel: "District 篩選",
+    districtLabel: "分區篩選",
     competitionLabel: "賽事類型",
     eventLabel: "賽事",
-    allDistricts: "全部 District",
+    allDistricts: "全部分區",
     allCompetitionTypes: "全部類型",
     chooseEvent: "選擇賽事",
     noEventsAvailable: "這個年份目前沒有可選擇的賽事。",
@@ -131,38 +127,48 @@ const dictionaries: Record<Locale, Dictionary> = {
     playoffMatchesLabel: "淘汰賽場次",
     emptyTitle: "先選一個賽事",
     emptyBody:
-      "選擇年份與賽事後，按下開始分析，系統會在伺服器端向 TBA 取得資料並計算 event 分析結果。",
+      "選好年份與賽事後按下開始分析，系統會在伺服器端向 TBA 抓資料並整理成 scouting 視角。",
     noTeamsTitle: "這個賽事目前還沒有可分析的隊伍資料。",
-    sampleMatchesLabel: "已打場次",
     recordLabel: "戰績",
     confidenceLabel: "資料信心",
-    confidenceLevelLabel: "信心等級",
     rankLabel: "排名",
     unrankedLabel: "未排名",
     referenceModeLabel: "輩分基準",
-    referenceModeHint:
-      "預設用目前分頁的模型判定輩分，也可以切換成以特定隊伍為基準，直接看相對差距。",
-    defaultReferenceOption: "預設模式（目前分頁基準）",
-    referenceBadge: "基準隊伍",
+    referenceModeHint: "用指定隊伍當基準，直接看相對差距。",
+    defaultReferenceOption: "預設模式（用目前分頁）",
+    pinnedModeLabel: "主隊標記",
+    pinnedModeHint: "選一支主隊並存在本機，下次回來也能直接找到。",
+    defaultPinnedOption: "不設定主隊",
+    pinnedBadge: "主隊",
     overallScoreLabel: "分數",
     relativeScoreLabel: "相對分數",
-    qualificationStrengthLabel: "積分賽評分",
-    playoffContextLabel: "淘汰賽評分",
+    qualificationStrengthLabel: "積分賽分數",
+    playoffContextLabel: "淘汰賽分數",
     playoffAllianceNote:
-      "淘汰賽成績以固定 alliance 為單位解讀，代表聯盟脈絡，不是單人單隊神化。",
+      "淘汰賽分數代表聯盟脈絡，不是把三場淘汰賽硬吹成單隊神話。",
     seedLabel: "聯盟種子",
+    slotLabel: "聯盟位置",
     noPlayoffDataLabel: "尚無淘汰賽資料",
-    noPlayoffMatchesYet: "已知 alliance context，但還沒有足夠的淘汰賽結果。",
     playoffUnavailableMessage: "尚未進入淘汰賽",
     qualificationNotApplicableMessage: "Einstein 不適用積分賽分析。",
+    awardsUnavailableMessage: "目前還沒有可顯示的 awards 資料。",
     sortByLabel: "排序方式",
     sortDirectionLabel: "方向",
     eventStrengthLabel: "場次強度",
-    overallMethodNote: "目前改成分頁顯示，不再把積分賽和淘汰賽硬混成單一分數。",
-    expandDetailsLabel: "展開分析",
-    collapseDetailsLabel: "收合分析",
-    scoutingNotesLabel: "數據吐槽",
-    backupLabel: "Backup",
+    overallMethodNote: "場次強度現在會更嚴格地看頂端、深度與分布，不再只看平均。",
+    expandDetailsLabel: "點擊看更多",
+    collapseDetailsLabel: "收起分析",
+    scoutingNotesLabel: "數據分析",
+    backupLabel: "備援",
+    progressLabel: "賽事進度",
+    awardsTitle: "獎項",
+    championshipQualifiersTitle: "晉級冠軍賽隊伍",
+    allAwardsTitle: "全部 Awards",
+    qualifiedByLabel: "晉級原因",
+    noAwardRecipients: "目前沒有得獎名單。",
+    rankingShortLabel: "排名",
+    recordShortLabel: "戰績",
+    confidenceShortLabel: "信心",
     language: {
       traditionalChinese: "繁中",
       english: "EN",
@@ -170,6 +176,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     analysisTabs: {
       qualification: "積分賽",
       playoff: "淘汰賽",
+      awards: "獎項",
     },
     categories: {
       grandpa: "爺爺",
@@ -207,11 +214,12 @@ const dictionaries: Record<Locale, Dictionary> = {
       desc: "由大到小",
     },
     eventStrengthProfiles: {
-      balancedDepth: "整體深度不錯，場上競爭度均衡。",
-      eliteDepth: "前段強度高，而且中段深度也夠，屬於偏硬的 field。",
-      topHeavy: "上位有強隊，但中後段深度不足，屬於明顯 top-heavy。",
-      softField: "整體深度偏弱，只有零星亮點，field 強度較軟。",
-      limitedData: "目前樣本還少，場次強度判定偏保守。",
+      championshipFinals: "這是 Einstein，直接站在最高層級，普通場次沒有資格跟它同桌。",
+      balancedDepth: "整體深度不錯，前中段都有競爭力。",
+      eliteDepth: "前段夠硬，中段也撐得住，屬於真的難打。",
+      topHeavy: "頭很硬，但中後段掉得快，明顯前強後弱。",
+      softField: "整體偏軟，少數亮點撐不起整個場。",
+      limitedData: "樣本還薄，先保守看待這場的強度。",
     },
     playoffAdvancement: {
       none: "尚未推進",
@@ -220,6 +228,19 @@ const dictionaries: Record<Locale, Dictionary> = {
       semifinalist: "4 強",
       finalist: "決賽",
       champion: "冠軍",
+    },
+    progressStages: {
+      qualificationEarly: "積分賽前段",
+      qualificationMidLate: "積分賽中後段",
+      playoffs: "淘汰賽",
+      finished: "已完賽",
+    },
+    qualifierReasons: {
+      winnerCaptain: "冠軍聯盟隊長",
+      winnerFirstPick: "冠軍聯盟第一順位",
+      impactAward: "Impact Award 得主",
+      engineeringInspirationAward: "工程啟發獎",
+      rookieAllStarAward: "新秀全明星獎",
     },
     eventTypes: {
       regional: "Regional",
@@ -234,35 +255,16 @@ const dictionaries: Record<Locale, Dictionary> = {
       scrimmage: "Scrimmage",
       other: "其他",
     },
-    insights: {
-      noQualificationData: "積分賽樣本太少，現在硬吹或硬酸都不太公平。",
-      highRankSoftSchedule: "排名不差，但賽程偏軟，多少有點被好搭檔抬上去。",
-      underseededStrongMetrics: "種子比底層數據還低，屬於被排位低估的類型。",
-      consistentQualification: "積分賽輸出穩，幾乎每場都在交功課。",
-      stableContribution: "底層貢獻偏穩，不太像抽卡隊。",
-      risingForm: "最近幾場越打越順，狀態往上走。",
-      slippingForm: "最近幾場有點掉漆，熱度在退。",
-      toughSchedule: "對手偏硬，表面排名沒有把難度完全算進去。",
-      softSchedule: "賽程偏甜，表面戰績需要打折看。",
-      volatilePerformance: "波動很大，高的時候很高，炸的時候也不客氣。",
-      playoffAllianceBoost: "有進淘汰賽，但更像是 alliance 帶飛，不是單隊統治。",
-      playoffAllianceValidated: "積分賽底子夠硬，淘汰賽 alliance 成績也跟得上。",
-      playoffSeedOnly: "聯盟已經成形，但淘汰賽樣本還不夠你下狠話。",
-      playoffNoMatches: "有 alliance 資訊，但還沒有淘汰賽結果可嘴。",
-      lowConfidence: "資料還薄，先別急著封神或判死刑。",
-      mediumConfidence: "資料差不多成形了，但還有一些灰區。",
-      neutral: "目前看起來大致落在 event 中間帶。",
-    },
-    relativeComparisonSelf: "這支隊伍就是目前選擇的基準。",
+    relativeComparisonSelf: "這支隊伍就是目前的比較基準。",
     relativeComparisonVs: "相對於 #%TEAM%：%SCORE%",
   },
   en: {
     appTitle: APP_NAME,
     appSubtitle:
-      "Use live The Blue Alliance event data to score qualification and playoffs separately, then quickly see who looks like a Grandpa, Father, Peer, Son, or Grandson.",
+      "Use live The Blue Alliance event data to separate qualification, playoffs, and awards cleanly, then scout who is actually strong and who is getting a little too much hype.",
     controlsTitle: "Event Analysis",
     modelHint:
-      "Qualification and playoffs are scored on separate tracks. Qualification corrects for schedule, partner and opponent strength, trend, and stability; playoffs stay alliance-based and never get blended in as fake qualification data.",
+      "Qualification, playoffs, and awards stay on separate tracks. Rankings, schedule strength, consistency, alliance slot, and awards all keep their own context.",
     poweredBy: "Powered by The Blue Alliance",
     yearLabel: "Year",
     districtLabel: "District Filter",
@@ -283,41 +285,50 @@ const dictionaries: Record<Locale, Dictionary> = {
     playoffMatchesLabel: "Playoff Matches",
     emptyTitle: "Pick an event first",
     emptyBody:
-      "Choose a year and event, then press Analyze. The server will pull TBA data and compute the event view.",
+      "Choose a year and event, then press Analyze. The server will pull TBA data and build a scouting-first event view.",
     noTeamsTitle: "This event does not have team data available yet.",
-    sampleMatchesLabel: "Matches Played",
     recordLabel: "Record",
-    confidenceLabel: "Data Confidence",
-    confidenceLevelLabel: "Confidence Band",
+    confidenceLabel: "Confidence",
     rankLabel: "Rank",
     unrankedLabel: "Unranked",
     referenceModeLabel: "Kinship Basis",
-    referenceModeHint:
-      "Default mode uses the current tab's model, or switch to a specific team to compare everyone against that baseline.",
-    defaultReferenceOption: "Default mode (current tab baseline)",
-    referenceBadge: "Reference Team",
+    referenceModeHint: "Compare everyone against a selected team on the current tab.",
+    defaultReferenceOption: "Default mode (current tab)",
+    pinnedModeLabel: "Pinned Team",
+    pinnedModeHint: "Save one team locally so it stays easy to find later.",
+    defaultPinnedOption: "No pinned team",
+    pinnedBadge: "Pinned",
     overallScoreLabel: "Score",
     relativeScoreLabel: "Relative Score",
     qualificationStrengthLabel: "Qualification Score",
     playoffContextLabel: "Playoff Score",
     playoffAllianceNote:
-      "Playoff performance is read at the fixed-alliance level. It is alliance context, not fake solo hero ball.",
+      "Playoff strength here is alliance context. Do not read it like a solo carry rating.",
     seedLabel: "Alliance Seed",
+    slotLabel: "Alliance Slot",
     noPlayoffDataLabel: "No playoff data yet",
-    noPlayoffMatchesYet:
-      "Alliance context exists, but there are not enough playoff matches yet to judge depth.",
     playoffUnavailableMessage: "Playoff data not available yet",
     qualificationNotApplicableMessage:
       "Qualification analysis does not apply to Einstein.",
+    awardsUnavailableMessage: "No awards data is available yet.",
     sortByLabel: "Sort By",
     sortDirectionLabel: "Direction",
     eventStrengthLabel: "Event Strength",
     overallMethodNote:
-      "Tabs now keep qualification and playoff scoring separate instead of blending them into one score.",
-    expandDetailsLabel: "Expand Analysis",
-    collapseDetailsLabel: "Collapse Analysis",
-    scoutingNotesLabel: "Scouting Notes",
+      "Event strength is now stricter about top-end talent, depth, and distribution instead of leaning on averages.",
+    expandDetailsLabel: "Tap for details",
+    collapseDetailsLabel: "Hide details",
+    scoutingNotesLabel: "Data Analysis",
     backupLabel: "Backup",
+    progressLabel: "Event Progress",
+    awardsTitle: "Awards",
+    championshipQualifiersTitle: "Championship Qualifiers",
+    allAwardsTitle: "All Awards",
+    qualifiedByLabel: "Qualified By",
+    noAwardRecipients: "No award recipients posted yet.",
+    rankingShortLabel: "Rank",
+    recordShortLabel: "Record",
+    confidenceShortLabel: "Confidence",
     language: {
       traditionalChinese: "繁中",
       english: "EN",
@@ -325,6 +336,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     analysisTabs: {
       qualification: "Qualification",
       playoff: "Playoff",
+      awards: "Awards",
     },
     categories: {
       grandpa: "Grandpa",
@@ -362,11 +374,18 @@ const dictionaries: Record<Locale, Dictionary> = {
       desc: "Descending",
     },
     eventStrengthProfiles: {
-      balancedDepth: "Balanced and competitive field with useful midfield depth.",
-      eliteDepth: "Strong top-end contenders and enough depth behind them to make this a hard field.",
-      topHeavy: "Strong top-end contenders, but limited midfield depth and a clear top-heavy shape.",
-      softField: "Limited depth across most of the field, with only a few notable contenders.",
-      limitedData: "The sample is still thin, so the field classification stays conservative.",
+      championshipFinals:
+        "This is Einstein. It sits in its own top shelf, and normal events do not belong in the same conversation.",
+      balancedDepth:
+        "The field is balanced, with useful strength across the middle of the pack.",
+      eliteDepth:
+        "The top is strong and the middle stays dangerous. This is a legitimately hard field.",
+      topHeavy:
+        "The ceiling is strong, but the field drops off quickly after the top group.",
+      softField:
+        "The field is shallow overall, with only a few teams carrying real punch.",
+      limitedData:
+        "The sample is still thin, so the field classification stays conservative.",
     },
     playoffAdvancement: {
       none: "Not advanced yet",
@@ -375,6 +394,19 @@ const dictionaries: Record<Locale, Dictionary> = {
       semifinalist: "Semifinal",
       finalist: "Finalist",
       champion: "Champion",
+    },
+    progressStages: {
+      qualificationEarly: "Qualification Early",
+      qualificationMidLate: "Qualification Mid/Late",
+      playoffs: "Playoffs",
+      finished: "Finished",
+    },
+    qualifierReasons: {
+      winnerCaptain: "Winning alliance captain",
+      winnerFirstPick: "Winning alliance first pick",
+      impactAward: "Impact Award",
+      engineeringInspirationAward: "Engineering Inspiration Award",
+      rookieAllStarAward: "Rookie All-Star Award",
     },
     eventTypes: {
       regional: "Regional",
@@ -389,51 +421,13 @@ const dictionaries: Record<Locale, Dictionary> = {
       scrimmage: "Scrimmage",
       other: "Other",
     },
-    insights: {
-      noQualificationData:
-        "Qualification data is too thin right now, so any hot take would be fake confidence.",
-      highRankSoftSchedule:
-        "The rank looks good, but the schedule has been soft enough that the surface result feels a little borrowed.",
-      underseededStrongMetrics:
-        "The seed is lower than the underlying metrics suggest. Hidden strength alert.",
-      consistentQualification:
-        "Qualification output has been steady. This team keeps showing up to work.",
-      stableContribution:
-        "Underlying contribution looks stable rather than random.",
-      risingForm: "Recent qualification form is trending up.",
-      slippingForm: "Recent qualification form has cooled off.",
-      toughSchedule:
-        "The schedule has been tougher than the rank alone admits.",
-      softSchedule:
-        "The schedule has been friendly, so the record needs a little skepticism.",
-      volatilePerformance:
-        "Volatile team: high highs, ugly lows, and very little chill in between.",
-      playoffAllianceBoost:
-        "The playoff presence looks more alliance-powered than individually dominant.",
-      playoffAllianceValidated:
-        "Strong qualification data has actually held up once the alliance games started.",
-      playoffSeedOnly:
-        "Alliance selection is set, but there still is not enough playoff match data to talk big.",
-      playoffNoMatches:
-        "Alliance info exists, but there are still no playoff matches to roast properly.",
-      lowConfidence: "Data is still limited, so confidence is low.",
-      mediumConfidence: "The read is usable, but some uncertainty is still hanging around.",
-      neutral: "The current profile sits near the event middle.",
-    },
-    relativeComparisonSelf: "This team is the selected comparison baseline.",
+    relativeComparisonSelf: "This team is the current comparison baseline.",
     relativeComparisonVs: "vs #%TEAM%: %SCORE%",
   },
 };
 
 export function getDictionary(locale: Locale): Dictionary {
   return dictionaries[locale] ?? dictionaries[DEFAULT_LOCALE];
-}
-
-export function getCategoryLabel(
-  locale: Locale,
-  category: ScoreCategory,
-): string {
-  return getDictionary(locale).categories[category];
 }
 
 export function getEventTierLabel(
@@ -464,4 +458,50 @@ export function getEventTypeLabel(
   const dictionary = getDictionary(locale);
   const key = getEventTypeKey(eventType);
   return dictionary.eventTypes[key] ?? dictionary.eventTypes.other;
+}
+
+export function getAlliancePositionLabel(input: {
+  locale: Locale;
+  seed: number | null;
+  slot: number | null;
+  isBackup: boolean;
+}): string | null {
+  if (input.seed === null) {
+    return null;
+  }
+
+  if (input.isBackup) {
+    return input.locale === "zh-TW"
+      ? `第 ${input.seed} 聯盟備援`
+      : `Alliance ${input.seed} backup`;
+  }
+
+  if (input.slot === 1) {
+    return input.locale === "zh-TW"
+      ? `第 ${input.seed} 聯盟隊長`
+      : `Alliance ${input.seed} captain`;
+  }
+
+  if (input.slot === 2) {
+    return input.locale === "zh-TW"
+      ? `第 ${input.seed} 聯盟第二順位`
+      : `Alliance ${input.seed} second slot`;
+  }
+
+  if (input.slot === 3) {
+    return input.locale === "zh-TW"
+      ? `第 ${input.seed} 聯盟第三順位`
+      : `Alliance ${input.seed} third slot`;
+  }
+
+  return input.locale === "zh-TW"
+    ? `第 ${input.seed} 聯盟成員`
+    : `Alliance ${input.seed} member`;
+}
+
+export function getQualifierReasonLabel(
+  locale: Locale,
+  reason: ChampionshipQualifierReason,
+): string {
+  return getDictionary(locale).qualifierReasons[reason];
 }
