@@ -19,7 +19,10 @@ type ScoreGaugeProps = {
 export function ScoreGauge({ score, category }: ScoreGaugeProps) {
   const fill = getGaugeFill(score);
   const theme = getCategoryTheme(category);
-  const rotation = -90 + fill * 1.8;
+  const angleDegrees = 180 + fill * 1.8;
+  const angleRadians = (angleDegrees * Math.PI) / 180;
+  const needleX = 60 + Math.cos(angleRadians) * 34;
+  const needleY = 60 + Math.sin(angleRadians) * 34;
   const cssVars = {
     "--accent": theme.accent,
     "--track": theme.gaugeTrack,
@@ -40,9 +43,13 @@ export function ScoreGauge({ score, category }: ScoreGaugeProps) {
           pathLength={100}
           strokeDasharray={`${fill} 100`}
         />
-        <g className={styles.needle} transform={`translate(60 60) rotate(${rotation})`}>
-          <line x1="0" y1="0" x2="0" y2="-34" />
-        </g>
+        <line
+          className={styles.needle}
+          x1="60"
+          y1="60"
+          x2={needleX}
+          y2={needleY}
+        />
         <circle className={styles.dot} cx="60" cy="60" r="5.5" />
       </svg>
       <div className={styles.score}>{formatSignedScore(score)}</div>

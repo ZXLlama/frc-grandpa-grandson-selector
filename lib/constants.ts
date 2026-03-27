@@ -1,18 +1,16 @@
-import type { ScoreCategory, ScoreMetricKey } from "@/lib/types";
+import type {
+  ConfidenceLevel,
+  ScoreCategory,
+  SortDirection,
+  TeamSortKey,
+} from "@/lib/types";
 
 export const APP_NAME = "FRC爺爺孫子選擇器";
 export const MIN_FRC_YEAR = 1992;
 export const DEFAULT_FRC_YEAR = new Date().getFullYear();
 export const DEFAULT_REFERENCE_TEAM_KEY = "";
-
-export const SCORE_WEIGHTS: Record<ScoreMetricKey, number> = {
-  ranking: 0.32,
-  winRate: 0.22,
-  trend: 0.16,
-  allianceScore: 0.14,
-  scheduleStrength: 0.1,
-  bonus: 0.06,
-};
+export const DEFAULT_SORT_KEY: TeamSortKey = "score";
+export const DEFAULT_SORT_DIRECTION: SortDirection = "desc";
 
 export const CATEGORY_THEME: Record<
   ScoreCategory,
@@ -115,4 +113,16 @@ export function getCategoryForScore(score: number): ScoreCategory {
   }
 
   return "peer";
+}
+
+export function getConfidenceLevel(confidence: number): ConfidenceLevel {
+  if (confidence >= 0.72) {
+    return "high";
+  }
+
+  if (confidence >= 0.42) {
+    return "medium";
+  }
+
+  return "low";
 }

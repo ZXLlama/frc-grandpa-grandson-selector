@@ -1,7 +1,11 @@
 "use client";
 
 import { getEventTypeLabel, type Dictionary } from "@/lib/i18n";
-import { formatEventDateRange, formatEventLocation } from "@/lib/presenters";
+import {
+  formatEventDateRange,
+  formatEventLocation,
+  formatMetaList,
+} from "@/lib/presenters";
 import type { EventOption, Locale } from "@/lib/types";
 
 import styles from "@/components/event-selector.module.css";
@@ -29,15 +33,13 @@ type EventSelectorProps = {
 };
 
 function buildEventLabel(event: EventOption, locale: Locale) {
-  const parts = [
+  return formatMetaList([
     event.name,
     getEventTypeLabel(locale, event.eventType),
     formatEventDateRange(locale, event),
     event.districtDisplay,
     formatEventLocation(event),
-  ].filter(Boolean);
-
-  return parts.join(" · ");
+  ]);
 }
 
 export function EventSelector({
@@ -61,18 +63,18 @@ export function EventSelector({
   onEventChange,
   onAnalyze,
 }: EventSelectorProps) {
-  const previewParts = selectedEvent
-    ? [
+  const previewMeta = selectedEvent
+    ? formatMetaList([
         getEventTypeLabel(locale, selectedEvent.eventType),
         selectedEvent.districtDisplay,
         formatEventDateRange(locale, selectedEvent),
         formatEventLocation(selectedEvent),
-      ].filter(Boolean)
-    : [];
+      ])
+    : null;
 
   return (
     <div className={styles.wrapper}>
-      <div className={styles.grid}>
+      <div className={styles.primaryGrid}>
         <label className={styles.field}>
           <span className={styles.label}>{dictionary.yearLabel}</span>
           <select
@@ -88,6 +90,31 @@ export function EventSelector({
           </select>
         </label>
 
+        <label className={styles.field}>
+          <span className={styles.label}>{dictionary.eventLabel}</span>
+          <select
+            className={styles.select}
+            value={selectedEventKey}
+            onChange={(event) => onEventChange(event.target.value)}
+            disabled={isLoadingEvents || !filteredEvents.length}
+          >
+            {filteredEvents.length === 0 ? (
+              <option value="">
+                {isLoadingEvents
+                  ? dictionary.loadingEvents
+                  : dictionary.noEventsAvailable}
+              </option>
+            ) : null}
+            {filteredEvents.map((event) => (
+              <option key={event.key} value={event.key}>
+                {buildEventLabel(event, locale)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className={styles.secondaryGrid}>
         <label className={styles.field}>
           <span className={styles.label}>{dictionary.districtLabel}</span>
           <select
@@ -121,36 +148,13 @@ export function EventSelector({
             ))}
           </select>
         </label>
-
-        <label className={`${styles.field} ${styles.eventField}`}>
-          <span className={styles.label}>{dictionary.eventLabel}</span>
-          <select
-            className={styles.select}
-            value={selectedEventKey}
-            onChange={(event) => onEventChange(event.target.value)}
-            disabled={isLoadingEvents || !filteredEvents.length}
-          >
-            {filteredEvents.length === 0 ? (
-              <option value="">
-                {isLoadingEvents
-                  ? dictionary.loadingEvents
-                  : dictionary.noEventsAvailable}
-              </option>
-            ) : null}
-            {filteredEvents.map((event) => (
-              <option key={event.key} value={event.key}>
-                {buildEventLabel(event, locale)}
-              </option>
-            ))}
-          </select>
-        </label>
       </div>
 
       {selectedEvent ? (
         <div className={styles.preview}>
           <div className={styles.previewTitle}>{selectedEvent.name}</div>
-          {previewParts.length ? (
-            <div className={styles.previewMeta}>{previewParts.join(" · ")}</div>
+          {previewMeta ? (
+            <div className={styles.previewMeta}>{previewMeta}</div>
           ) : null}
         </div>
       ) : null}
@@ -163,6 +167,7 @@ export function EventSelector({
               ? dictionary.loadingEvents
               : null}
         </div>
+
         <button
           type="button"
           className={styles.button}

@@ -1,0 +1,350 @@
+import { clamp, roundTo } from "@/lib/constants";
+import type {
+  PlayoffContext,
+  PlayoffFinish,
+  TeamRecord,
+} from "@/lib/types";
+import type {
+  TbaAlliance,
+  TbaMatchSimple,
+  TbaTeamSimple,
+} from "@/lib/server/tba";
+import { normalizeDistribution, standardDeviation } from "@/lib/scoring/math";
+import { getMatchOrder, getWinRate, isPlayedMatch } from "@/lib/scoring/shared";
+
+type AllianceAggregate = {
+  key: string;
+  label: string | null;
+  seed: number | null;
+  members: Set<string>;
+  matchesPlayed: number;
+  wins: number;
+  losses: number;
+  ties: number;
+  margins: number[];
+  deepestLevel: string | null;
+  finalWins: number;
+  finalLosses: number;
+  status: string | null;
+};
+
+const LEVEL_ORDER: Record<string, number> = {
+  ef: 1,
+  qf: 2,
+  sf: 3,
+  f: 4,
+};
+
+function getSeedFromAlliance(alliance: TbaAlliance, index: number): number | null {
+  const fromName = alliance.name?.match(/(\d+)/)?.[1];
+
+  if (fromName) {
+    const parsed = Number.parseInt(fromName, 10);
+    return Number.isFinite(parsed) ? parsed : index + 1;
+  }
+
+  return index + 1;
+}
+
+function getAllianceKey(seed: number | null, index: number): string {
+  return `alliance:${seed ?? index + 1}`;
+}
+
+function getMembers(alliance: TbaAlliance): string[] {
+  const members = new Set<string>(alliance.picks ?? []);
+
+  if (alliance.backup?.in) {
+    members.add(alliance.backup.in);
+  }
+
+  if (alliance.backup?.out) {
+    members.add(alliance.backup.out);
+  }
+
+  return [...members];
+}
+
+function toRecord(aggregate: AllianceAggregate): TeamRecord {
+  return {
+    wins: aggregate.wins,
+    losses: aggregate.losses,
+    ties: aggregate.ties,
+  };
+}
+
+function getAdvancement(
+  aggregate: AllianceAggregate,
+): PlayoffFinish {
+  if (aggregate.status?.toLowerCase() === "won") {
+    return "champion";
+  }
+
+  if (aggregate.deepestLevel === "f") {
+    return aggregate.finalWins > aggregate.finalLosses ? "champion" : "finalist";
+  }
+
+  if (aggregate.deepestLevel === "sf") {
+    return "semifinalist";
+  }
+
+  if (aggregate.deepestLevel === "qf") {
+    return "quarterfinalist";
+  }
+
+  if (aggregate.deepestLevel === "ef") {
+    return "octofinalist";
+  }
+
+  return "none";
+}
+
+function getAdvancementSignal(finish: PlayoffFinish): number {
+  switch (finish) {
+    case "champion":
+      return 1;
+    case "finalist":
+      return 0.72;
+    case "semifinalist":
+      return 0.42;
+    case "quarterfinalist":
+      return 0.16;
+    case "octofinalist":
+      return 0.04;
+    default:
+      return 0;
+  }
+}
+
+export function analyzePlayoffs(input: {
+  teams: TbaTeamSimple[];
+  matches: TbaMatchSimple[];
+  alliances: TbaAlliance[] | null;
+}): {
+  playoffMatches: TbaMatchSimple[];
+  results: Map<string, PlayoffContext>;
+} {
+  const teams = [...input.teams].sort(
+    (left, right) => left.team_number - right.team_number,
+  );
+  const teamSet = new Set(teams.map((team) => team.key));
+  const playoffMatches = input.matches
+    .filter((match) => isPlayedMatch(match) && match.comp_level !== "qm")
+    .sort((left, right) => getMatchOrder(left) - getMatchOrder(right));
+  const aggregates = new Map<string, AllianceAggregate>();
+  const teamToAlliance = new Map<string, string>();
+
+  for (const [index, alliance] of (input.alliances ?? []).entries()) {
+    const seed = getSeedFromAlliance(alliance, index);
+    const allianceKey = getAllianceKey(seed, index);
+    const members = getMembers(alliance).filter((teamKey) => teamSet.has(teamKey));
+
+    aggregates.set(allianceKey, {
+      key: allianceKey,
+      label: alliance.name ?? (seed ? `Alliance ${seed}` : null),
+      seed,
+      members: new Set(members),
+      matchesPlayed: 0,
+      wins: 0,
+      losses: 0,
+      ties: 0,
+      margins: [],
+      deepestLevel: alliance.status?.level ?? null,
+      finalWins: 0,
+      finalLosses: 0,
+      status: alliance.status?.status ?? null,
+    });
+
+    for (const teamKey of members) {
+      teamToAlliance.set(teamKey, allianceKey);
+    }
+  }
+
+  const ensureFallbackAlliance = (teamKeys: string[]) => {
+    const knownKey = teamKeys.find((teamKey) => teamToAlliance.has(teamKey));
+
+    if (knownKey) {
+      return teamToAlliance.get(knownKey) ?? null;
+    }
+
+    const cleanedTeamKeys = teamKeys.filter((teamKey) => teamSet.has(teamKey));
+
+    if (!cleanedTeamKeys.length) {
+      return null;
+    }
+
+    const fallbackKey = `alliance:fallback:${cleanedTeamKeys
+      .slice()
+      .sort()
+      .join("-")}`;
+
+    if (!aggregates.has(fallbackKey)) {
+      aggregates.set(fallbackKey, {
+        key: fallbackKey,
+        label: null,
+        seed: null,
+        members: new Set(cleanedTeamKeys),
+        matchesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        ties: 0,
+        margins: [],
+        deepestLevel: null,
+        finalWins: 0,
+        finalLosses: 0,
+        status: null,
+      });
+
+      for (const teamKey of cleanedTeamKeys) {
+        teamToAlliance.set(teamKey, fallbackKey);
+      }
+    }
+
+    return fallbackKey;
+  };
+
+  for (const match of playoffMatches) {
+    const processAlliance = (
+      ownAlliance: TbaMatchSimple["alliances"]["red"],
+      opponentAlliance: TbaMatchSimple["alliances"]["blue"],
+    ) => {
+      const allianceKey =
+        ensureFallbackAlliance(ownAlliance.team_keys) ??
+        ensureFallbackAlliance(opponentAlliance.team_keys);
+
+      if (!allianceKey) {
+        return;
+      }
+
+      const aggregate = aggregates.get(allianceKey);
+
+      if (!aggregate) {
+        return;
+      }
+
+      const margin = ownAlliance.score - opponentAlliance.score;
+
+      aggregate.matchesPlayed += 1;
+      aggregate.margins.push(margin);
+      aggregate.deepestLevel =
+        !aggregate.deepestLevel ||
+        (LEVEL_ORDER[match.comp_level] ?? 0) > (LEVEL_ORDER[aggregate.deepestLevel] ?? 0)
+          ? match.comp_level
+          : aggregate.deepestLevel;
+
+      if (margin > 0) {
+        aggregate.wins += 1;
+      } else if (margin < 0) {
+        aggregate.losses += 1;
+      } else {
+        aggregate.ties += 1;
+      }
+
+      if (match.comp_level === "f") {
+        if (margin > 0) {
+          aggregate.finalWins += 1;
+        } else if (margin < 0) {
+          aggregate.finalLosses += 1;
+        }
+      }
+
+      for (const teamKey of ownAlliance.team_keys) {
+        if (teamSet.has(teamKey)) {
+          aggregate.members.add(teamKey);
+          teamToAlliance.set(teamKey, allianceKey);
+        }
+      }
+    };
+
+    processAlliance(match.alliances.red, match.alliances.blue);
+    processAlliance(match.alliances.blue, match.alliances.red);
+  }
+
+  const allianceCount = Math.max(aggregates.size, 1);
+  const rawSignals = new Map<string, number | null>();
+  const consistencyValues = new Map<string, number | null>();
+
+  for (const aggregate of aggregates.values()) {
+    const consistency =
+      aggregate.margins.length < 2
+        ? null
+        : clamp((1 - standardDeviation(aggregate.margins) / 20) * 2 - 1, -1, 1);
+
+    consistencyValues.set(aggregate.key, consistency);
+  }
+
+  const normalizedConsistency = normalizeDistribution(consistencyValues, 1.2);
+
+  for (const aggregate of aggregates.values()) {
+    const record = toRecord(aggregate);
+    const advancement = getAdvancement(aggregate);
+    const winRate = getWinRate(record, aggregate.matchesPlayed);
+    const winRateSignal =
+      winRate === null ? 0 : clamp((winRate - 0.5) * 2, -1, 1);
+    const seedSignal =
+      aggregate.seed === null || allianceCount <= 1
+        ? 0
+        : clamp((1 - (aggregate.seed - 1) / (allianceCount - 1)) * 2 - 1, -1, 1);
+    const consistency = normalizedConsistency.get(aggregate.key) ?? 0;
+
+    rawSignals.set(
+      aggregate.key,
+      clamp(
+        getAdvancementSignal(advancement) * 0.46 +
+          winRateSignal * 0.28 +
+          consistency * 0.14 +
+          seedSignal * 0.12,
+        -1.3,
+        1.3,
+      ),
+    );
+  }
+
+  const normalizedSignals = normalizeDistribution(rawSignals, 1.1);
+  const results = new Map<string, PlayoffContext>();
+
+  for (const aggregate of aggregates.values()) {
+    const record = toRecord(aggregate);
+    const advancement = getAdvancement(aggregate);
+    const winRate = getWinRate(record, aggregate.matchesPlayed);
+    const consistency = normalizedConsistency.get(aggregate.key) ?? null;
+    const confidence = clamp(
+      Math.min(aggregate.matchesPlayed / 5, 1) * 0.72 +
+        (aggregate.seed !== null ? 0.16 : 0) +
+        (aggregate.status ? 0.08 : 0),
+      0.14,
+      1,
+    );
+    const normalizedSignal = normalizedSignals.get(aggregate.key) ?? rawSignals.get(aggregate.key) ?? 0;
+    const score =
+      aggregate.matchesPlayed === 0 && aggregate.seed === null
+        ? null
+        : roundTo(
+            clamp(normalizedSignal * 10 * (0.34 + confidence * 0.66), -10, 10),
+            1,
+          );
+
+    for (const teamKey of aggregate.members) {
+      if (!teamSet.has(teamKey)) {
+        continue;
+      }
+
+      results.set(teamKey, {
+        allianceBased: true,
+        allianceLabel: aggregate.label,
+        seed: aggregate.seed,
+        matchesPlayed: aggregate.matchesPlayed,
+        record,
+        winRate,
+        advancement,
+        score,
+        confidence,
+        consistency,
+      });
+    }
+  }
+
+  return {
+    playoffMatches,
+    results,
+  };
+}

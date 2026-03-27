@@ -55,6 +55,15 @@ textarea {
   font: inherit;
 }
 
+select,
+option {
+  color: #081018;
+}
+
+option {
+  background: #ffffff;
+}
+
 a {
   color: inherit;
   text-decoration: none;

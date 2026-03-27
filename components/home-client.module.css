@@ -127,7 +127,7 @@
 .statsRow {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .stat {
@@ -149,6 +149,62 @@
   font-size: 1.45rem;
 }
 
+.fieldCard {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem;
+  border: 1px solid rgba(44, 243, 194, 0.18);
+  border-radius: 1.2rem;
+  background:
+    radial-gradient(circle at top right, rgba(44, 243, 194, 0.08), transparent 34%),
+    rgba(6, 16, 25, 0.76);
+}
+
+.fieldHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.fieldLabel {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.fieldTier {
+  margin-top: 0.25rem;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.2rem, 5vw, 1.85rem);
+  color: #d6fff4;
+}
+
+.fieldScore {
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.65rem;
+  color: #2cf3c2;
+}
+
+.fieldSummary {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+
+.fieldNote {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+.toolbarGrid {
+  display: grid;
+  gap: 0.9rem;
+}
+
 .grid {
   display: grid;
   gap: 0.9rem;
@@ -167,7 +223,12 @@
   padding: 1rem;
   border-radius: 1.6rem;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.03)
+    );
   background-size: 220% 100%;
   animation: shimmer 1.3s infinite;
 }
@@ -248,6 +309,10 @@
     flex-direction: row;
     justify-content: space-between;
     align-items: flex-end;
+  }
+
+  .toolbarGrid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   }
 
   .grid {

@@ -1,5 +1,5 @@
 .gauge {
-  width: 9.2rem;
+  width: min(9.8rem, 100%);
   display: grid;
   justify-items: center;
   gap: 0.1rem;
@@ -25,7 +25,7 @@
   stroke-linecap: round;
 }
 
-.needle line {
+.needle {
   stroke: var(--accent);
   stroke-width: 3.5;
   stroke-linecap: round;

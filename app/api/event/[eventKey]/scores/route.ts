@@ -3,9 +3,11 @@ import { z } from "zod";
 
 import { computeEventScores } from "@/lib/scoring/engine";
 import {
+  getEventAlliances,
   getEventAwards,
   getEventByKey,
   getEventMatches,
+  getEventOprs,
   getEventRankings,
   getEventTeams,
   isTbaError,
@@ -33,13 +35,23 @@ export async function GET(
 
   try {
     const eventKey = parsedParams.data.eventKey;
-    const [eventResult, teamsResult, rankingsResult, matchesResult, awardsResult] =
+    const [
+      eventResult,
+      teamsResult,
+      rankingsResult,
+      matchesResult,
+      awardsResult,
+      alliancesResult,
+      oprsResult,
+    ] =
       await Promise.allSettled([
         getEventByKey(eventKey),
         getEventTeams(eventKey),
         getEventRankings(eventKey),
         getEventMatches(eventKey),
         getEventAwards(eventKey),
+        getEventAlliances(eventKey),
+        getEventOprs(eventKey),
       ]);
 
     if (eventResult.status === "rejected") {
@@ -56,6 +68,8 @@ export async function GET(
       rankings: rankingsResult.status === "fulfilled" ? rankingsResult.value : null,
       matches: matchesResult.status === "fulfilled" ? matchesResult.value : [],
       awards: awardsResult.status === "fulfilled" ? awardsResult.value : [],
+      alliances: alliancesResult.status === "fulfilled" ? alliancesResult.value : null,
+      oprs: oprsResult.status === "fulfilled" ? oprsResult.value : null,
     });
 
     return NextResponse.json(payload, {

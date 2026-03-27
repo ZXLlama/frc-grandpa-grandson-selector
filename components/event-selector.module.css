@@ -1,9 +1,10 @@
 .wrapper {
   display: grid;
-  gap: 1rem;
+  gap: 0.9rem;
 }
 
-.grid {
+.primaryGrid,
+.secondaryGrid {
   display: grid;
   gap: 0.9rem;
 }
@@ -13,26 +14,22 @@
   gap: 0.45rem;
 }
 
-.eventField {
-  grid-column: 1 / -1;
-}
-
 .label {
   font-size: 0.82rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-dim);
 }
 
 .select {
   width: 100%;
-  min-height: 3.4rem;
+  min-height: 3.45rem;
   padding: 0.85rem 1rem;
-  border: 1px solid rgba(119, 217, 255, 0.12);
+  border: 1px solid rgba(119, 217, 255, 0.16);
   border-radius: 1rem;
-  color: var(--text);
-  background:
-    linear-gradient(180deg, rgba(18, 29, 42, 0.96), rgba(10, 18, 28, 0.94));
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  color: #081018;
+  background: #ffffff;
+  color-scheme: light;
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.16);
 }
 
 .select:focus {
@@ -50,7 +47,11 @@
   padding: 1rem 1.05rem;
   border: 1px solid rgba(132, 255, 102, 0.12);
   border-radius: 1.15rem;
-  background: linear-gradient(180deg, rgba(10, 20, 31, 0.84), rgba(6, 13, 21, 0.76));
+  background: linear-gradient(
+    180deg,
+    rgba(10, 20, 31, 0.84),
+    rgba(6, 13, 21, 0.76)
+  );
 }
 
 .previewTitle {
@@ -61,7 +62,7 @@
 
 .previewMeta {
   font-size: 0.87rem;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--text-muted);
 }
 
@@ -78,7 +79,7 @@
 }
 
 .button {
-  min-height: 3.4rem;
+  min-height: 3.45rem;
   border: 0;
   border-radius: 1rem;
   font-family: var(--font-display), sans-serif;
@@ -98,7 +99,11 @@
 }
 
 @media (min-width: 760px) {
-  .grid {
+  .primaryGrid {
+    grid-template-columns: 13rem minmax(0, 1fr);
+  }
+
+  .secondaryGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -107,7 +112,7 @@
   }
 
   .button {
-    min-width: 11rem;
+    min-width: 12rem;
     padding-inline: 1.5rem;
   }
 }

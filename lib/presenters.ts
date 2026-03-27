@@ -5,7 +5,6 @@ import type {
   Locale,
   ScoreCategory,
   TeamRecord,
-  TeamScore,
 } from "@/lib/types";
 
 export function getCategoryTheme(category: ScoreCategory) {
@@ -27,6 +26,14 @@ export function formatRecord(record: TeamRecord): string {
 
 export function formatConfidence(confidence: number): string {
   return `${Math.round(clamp(confidence, 0, 1) * 100)}%`;
+}
+
+export function formatPercent(value: number | null, digits = 0): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  return `${(value * 100).toFixed(digits)}%`;
 }
 
 export function formatEventLocation(
@@ -66,44 +73,8 @@ export function formatEventDateRange(
   return `${formatter.format(start)} - ${formatter.format(end)}`;
 }
 
-export function buildTeamSummary(team: TeamScore, locale: Locale): string {
-  const dictionary = getDictionary(locale);
-
-  if (team.sampleSize === 0) {
-    return dictionary.noMatchesSummary;
-  }
-
-  const rankedMetrics = [...team.breakdown]
-    .filter(
-      (metric) => metric.available && Math.abs(metric.contribution) >= 0.025,
-    )
-    .sort(
-      (left, right) =>
-        Math.abs(right.contribution) - Math.abs(left.contribution),
-    );
-
-  const parts: string[] = [];
-
-  const positive = rankedMetrics.find((metric) => metric.contribution > 0);
-  const negative = rankedMetrics.find((metric) => metric.contribution < 0);
-
-  if (positive) {
-    parts.push(dictionary.metricSummary[positive.key].positive);
-  }
-
-  if (negative && parts.length < 2) {
-    parts.push(dictionary.metricSummary[negative.key].negative);
-  }
-
-  if (team.confidence < 0.45 && parts.length < 2) {
-    parts.push(dictionary.lowDataSummary);
-  }
-
-  if (!parts.length) {
-    parts.push(dictionary.neutralSummary);
-  }
-
-  return parts.slice(0, 2).join(" · ");
+export function formatMetaList(parts: Array<string | null | undefined>): string {
+  return parts.filter(Boolean).join(" · ");
 }
 
 export function buildRelativeComparisonText(input: {
@@ -112,15 +83,13 @@ export function buildRelativeComparisonText(input: {
   displayedScore: number;
   isReference: boolean;
 }): string {
-  const { locale, referenceTeamNumber, displayedScore, isReference } = input;
+  const dictionary = getDictionary(input.locale);
 
-  if (isReference) {
-    return locale === "zh-TW"
-      ? "這支隊伍就是目前選定的比較基準"
-      : "This team is the selected comparison baseline";
+  if (input.isReference) {
+    return dictionary.relativeComparisonSelf;
   }
 
-  return locale === "zh-TW"
-    ? `相對 #${referenceTeamNumber}：${formatSignedScore(displayedScore)}`
-    : `vs #${referenceTeamNumber}: ${formatSignedScore(displayedScore)}`;
+  return dictionary.relativeComparisonVs
+    .replace("%TEAM%", String(input.referenceTeamNumber))
+    .replace("%SCORE%", formatSignedScore(input.displayedScore));
 }

@@ -141,12 +141,50 @@ const awardSchema = z
   })
   .passthrough();
 
+const allianceSchema = z
+  .object({
+    name: z.string().nullable().optional(),
+    picks: z.array(z.string()).default([]),
+    declines: z.array(z.string()).default([]),
+    backup: z
+      .object({
+        in: z.string().nullable().optional(),
+        out: z.string().nullable().optional(),
+      })
+      .passthrough()
+      .nullable()
+      .optional(),
+    status: z
+      .object({
+        status: z.string().nullable().optional(),
+        level: z.string().nullable().optional(),
+        playoff_average: z.number().nullable().optional(),
+        record: wltRecordSchema.optional(),
+        current_level_record: wltRecordSchema.optional(),
+      })
+      .passthrough()
+      .nullable()
+      .optional(),
+  })
+  .passthrough();
+
+const oprsSchema = z
+  .object({
+    oprs: z.record(z.string(), z.number()).default({}),
+    dprs: z.record(z.string(), z.number()).default({}),
+    ccwms: z.record(z.string(), z.number()).default({}),
+  })
+  .passthrough()
+  .nullable();
+
 export type TbaEventSimple = z.infer<typeof eventSimpleSchema>;
 export type TbaTeamSimple = z.infer<typeof teamSimpleSchema>;
 export type TbaRankings = z.infer<typeof rankingsSchema>;
 export type TbaRankingEntry = z.infer<typeof rankingEntrySchema>;
 export type TbaMatchSimple = z.infer<typeof matchSimpleSchema>;
 export type TbaAward = z.infer<typeof awardSchema>;
+export type TbaAlliance = z.infer<typeof allianceSchema>;
+export type TbaOprs = z.infer<typeof oprsSchema>;
 
 export class TbaError extends Error {
   constructor(
@@ -335,4 +373,20 @@ export async function getEventAwards(
     z.array(awardSchema),
     120_000,
   );
+}
+
+export async function getEventAlliances(
+  eventKey: string,
+): Promise<TbaAlliance[]> {
+  return fetchTbaJson(
+    `/event/${eventKey}/alliances`,
+    z.array(allianceSchema),
+    45_000,
+  );
+}
+
+export async function getEventOprs(
+  eventKey: string,
+): Promise<TbaOprs> {
+  return fetchTbaJson(`/event/${eventKey}/oprs`, oprsSchema, 45_000);
 }

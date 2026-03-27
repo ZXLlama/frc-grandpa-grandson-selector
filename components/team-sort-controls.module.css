@@ -1,8 +1,8 @@
 .card {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.8rem;
   padding: 0.95rem 1rem;
-  border: 1px solid rgba(132, 255, 102, 0.14);
+  border: 1px solid rgba(119, 217, 255, 0.14);
   border-radius: 1.15rem;
   background: rgba(7, 18, 27, 0.72);
 }
@@ -22,15 +22,15 @@
   width: 100%;
   min-height: 3.2rem;
   padding: 0.85rem 1rem;
-  border: 1px solid rgba(119, 217, 255, 0.14);
+  border: 1px solid rgba(119, 217, 255, 0.12);
   border-radius: 1rem;
   color: #081018;
   background: #ffffff;
   color-scheme: light;
 }
 
-.hint {
-  font-size: 0.84rem;
-  line-height: 1.55;
-  color: var(--text-muted);
+@media (min-width: 640px) {
+  .card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

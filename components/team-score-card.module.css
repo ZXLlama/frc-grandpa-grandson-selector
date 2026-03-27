@@ -25,7 +25,7 @@
 .top {
   display: grid;
   gap: 1rem;
-  align-items: center;
+  align-items: start;
 }
 
 .identity {
@@ -41,6 +41,7 @@
 }
 
 .rankChip,
+.confidenceChip,
 .referenceChip {
   display: inline-flex;
   align-items: center;
@@ -52,10 +53,18 @@
   letter-spacing: 0.02em;
 }
 
-.rankChip {
+.rankChip,
+.confidenceChip {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
+}
+
+.rankChip {
   color: var(--text-muted);
+}
+
+.confidenceChip {
+  color: var(--text-dim);
 }
 
 .referenceChip {
@@ -69,17 +78,20 @@
   align-items: center;
   justify-content: center;
   width: fit-content;
-  min-width: 6.25rem;
-  min-height: 4.2rem;
+  max-width: 100%;
+  min-height: 4rem;
   padding: 0.7rem 1rem;
   border: 1px solid var(--border);
   border-radius: 1.15rem;
   background: var(--tint);
   color: var(--accent);
   font-family: var(--font-display), sans-serif;
-  font-size: clamp(2rem, 8vw, 2.6rem);
+  font-size: clamp(1.6rem, 7vw, 2.45rem);
   font-weight: 700;
+  line-height: 0.96;
   letter-spacing: -0.05em;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   box-shadow: 0 14px 34px var(--glow);
 }
 
@@ -93,42 +105,116 @@
 
 .gaugeWrap {
   justify-self: center;
+  width: min(100%, 10rem);
 }
 
 .tierPanel {
   display: grid;
-  gap: 0.35rem;
-  padding: 0.95rem 1rem;
+  gap: 0.75rem;
+  padding: 1rem;
   border: 1px solid var(--border);
   border-radius: 1.2rem;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, transparent), transparent 68%),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent) 22%, transparent),
+      transparent 68%
+    ),
     rgba(255, 255, 255, 0.025);
+}
+
+.tierMain {
+  display: grid;
+  gap: 0.3rem;
 }
 
 .tierLabel {
   font-family: var(--font-display), sans-serif;
-  font-size: clamp(1.3rem, 5vw, 1.8rem);
+  font-size: clamp(1.55rem, 6vw, 2rem);
   font-weight: 700;
   letter-spacing: -0.04em;
   color: var(--text-strong);
 }
 
 .tierCaption {
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   color: var(--text-muted);
 }
 
+.scoreStack {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.scoreRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.8rem;
+}
+
+.scoreLabel,
 .relativeLine,
 .absoluteLine {
   font-size: 0.82rem;
   color: var(--text-dim);
 }
 
+.scoreValue {
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.5rem;
+  color: var(--text-strong);
+}
+
+.sectionGrid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.sectionCard {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.sectionLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.sectionValue {
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.45rem;
+  color: var(--text-strong);
+}
+
+.sectionMeta {
+  min-height: 1.3rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.sectionFoot {
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+.summaryBlock {
+  display: grid;
+  gap: 0.45rem;
+}
+
 .summary {
-  min-height: 3rem;
-  font-size: 0.95rem;
-  line-height: 1.65;
+  font-size: 0.92rem;
+  line-height: 1.62;
   color: var(--text-muted);
 }
 
@@ -158,12 +244,16 @@
   color: var(--text);
 }
 
-@media (min-width: 520px) {
+@media (min-width: 640px) {
   .top {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(9rem, 10rem);
   }
 
   .gaugeWrap {
     justify-self: end;
+  }
+
+  .sectionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

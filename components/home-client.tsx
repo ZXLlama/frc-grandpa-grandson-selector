@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import {
   DEFAULT_FRC_YEAR,
   DEFAULT_REFERENCE_TEAM_KEY,
+  DEFAULT_SORT_DIRECTION,
+  DEFAULT_SORT_KEY,
   MIN_FRC_YEAR,
   clamp,
   getCategoryForScore,
@@ -12,20 +14,30 @@ import {
 import {
   DEFAULT_LOCALE,
   getDictionary,
+  getEventTierLabel,
   getEventTypeLabel,
 } from "@/lib/i18n";
-import { formatEventDateRange, formatEventLocation } from "@/lib/presenters";
+import {
+  formatEventDateRange,
+  formatEventLocation,
+  formatMetaList,
+  formatSignedScore,
+} from "@/lib/presenters";
+import { sortDisplayedTeams } from "@/lib/sorting";
 import type {
   EventOption,
   EventScoresResponse,
   EventsResponse,
   Locale,
+  SortDirection,
+  TeamSortKey,
 } from "@/lib/types";
 
 import { EventSelector } from "@/components/event-selector";
 import { LanguageToggle } from "@/components/language-toggle";
 import { ReferenceTeamSelector } from "@/components/reference-team-selector";
 import { TeamScoreCard } from "@/components/team-score-card";
+import { TeamSortControls } from "@/components/team-sort-controls";
 import styles from "@/components/home-client.module.css";
 
 function getErrorMessage(data: unknown): string | null {
@@ -71,6 +83,10 @@ export function HomeClient() {
   const [selectedEventKey, setSelectedEventKey] = useState("");
   const [referenceTeamKey, setReferenceTeamKey] = useState(
     DEFAULT_REFERENCE_TEAM_KEY,
+  );
+  const [sortKey, setSortKey] = useState<TeamSortKey>(DEFAULT_SORT_KEY);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(
+    DEFAULT_SORT_DIRECTION,
   );
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
@@ -239,15 +255,15 @@ export function HomeClient() {
   }
 
   const eventMeta = selectedEvent
-    ? [
+    ? formatMetaList([
         getEventTypeLabel(locale, selectedEvent.eventType),
         selectedEvent.districtDisplay,
         formatEventDateRange(locale, selectedEvent),
         formatEventLocation(selectedEvent),
-      ].filter(Boolean)
-    : [];
+      ])
+    : null;
 
-  const displayedTeams =
+  const displayedTeams = sortDisplayedTeams(
     scores?.teams.map((team) => {
       const displayedScore = referenceTeam
         ? clamp(team.score - referenceTeam.score, -10, 10)
@@ -259,7 +275,10 @@ export function HomeClient() {
         displayedCategory: getCategoryForScore(displayedScore),
         isReference: referenceTeam?.teamKey === team.teamKey,
       };
-    }) ?? [];
+    }) ?? [],
+    sortKey,
+    sortDirection,
+  );
 
   return (
     <main className={styles.page}>
@@ -316,8 +335,8 @@ export function HomeClient() {
             {selectedEvent ? (
               <>
                 <h2 className={styles.eventName}>{selectedEvent.name}</h2>
-                {eventMeta.length ? (
-                  <div className={styles.eventMeta}>{eventMeta.join(" · ")}</div>
+                {eventMeta ? (
+                  <div className={styles.eventMeta}>{eventMeta}</div>
                 ) : null}
               </>
             ) : (
@@ -332,20 +351,59 @@ export function HomeClient() {
                 <strong>{scores.event.teamCount}</strong>
               </div>
               <div className={styles.stat}>
-                <span>{dictionary.matchesLabel}</span>
-                <strong>{scores.event.completedMatches}</strong>
+                <span>{dictionary.qualificationMatchesLabel}</span>
+                <strong>{scores.event.qualificationMatches}</strong>
+              </div>
+              <div className={styles.stat}>
+                <span>{dictionary.playoffMatchesLabel}</span>
+                <strong>{scores.event.playoffMatches}</strong>
               </div>
             </div>
           ) : null}
         </div>
 
         {scores ? (
-          <ReferenceTeamSelector
-            dictionary={dictionary}
-            referenceTeamKey={referenceTeamKey}
-            teams={scores.teams}
-            onChange={setReferenceTeamKey}
-          />
+          <div className={styles.fieldCard}>
+            <div className={styles.fieldHeader}>
+              <div>
+                <div className={styles.fieldLabel}>{dictionary.eventStrengthLabel}</div>
+                <div className={styles.fieldTier}>
+                  {getEventTierLabel(locale, scores.event.fieldStrength.category)}
+                </div>
+              </div>
+
+              <div className={styles.fieldScore}>
+                {formatSignedScore(scores.event.fieldStrength.score)}
+              </div>
+            </div>
+
+            <p className={styles.fieldSummary}>
+              {
+                dictionary.eventStrengthProfiles[
+                  scores.event.fieldStrength.profile
+                ]
+              }
+            </p>
+            <p className={styles.fieldNote}>{dictionary.overallMethodNote}</p>
+          </div>
+        ) : null}
+
+        {scores ? (
+          <div className={styles.toolbarGrid}>
+            <ReferenceTeamSelector
+              dictionary={dictionary}
+              referenceTeamKey={referenceTeamKey}
+              teams={scores.teams}
+              onChange={setReferenceTeamKey}
+            />
+            <TeamSortControls
+              dictionary={dictionary}
+              sortKey={sortKey}
+              sortDirection={sortDirection}
+              onSortKeyChange={setSortKey}
+              onSortDirectionChange={setSortDirection}
+            />
+          </div>
         ) : null}
 
         {scoresError ? (
