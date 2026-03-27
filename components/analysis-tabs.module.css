@@ -1,0 +1,40 @@
+.tabs {
+  display: inline-grid;
+  gap: 0.45rem;
+  padding: 0.35rem;
+  border: 1px solid rgba(119, 217, 255, 0.12);
+  border-radius: 1.2rem;
+  background: rgba(7, 18, 27, 0.72);
+}
+
+.tab,
+.activeTab {
+  min-height: 3rem;
+  padding: 0.8rem 1rem;
+  border: 0;
+  border-radius: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tab {
+  color: var(--text-dim);
+  background: transparent;
+}
+
+.activeTab {
+  color: #061018;
+  background: linear-gradient(135deg, #84ff66 0%, #2cf3c2 100%);
+  box-shadow: 0 12px 22px rgba(44, 243, 194, 0.18);
+}
+
+@media (min-width: 760px) {
+  .tabs {
+    width: auto;
+  }
+
+  .tab,
+  .activeTab {
+    min-width: 11rem;
+  }
+}

@@ -59,6 +59,7 @@ export function computeEventScores(input: {
   alliances: TbaAlliance[] | null;
   oprs: TbaOprs | null;
 }): EventScoresResponse {
+  const isPlayoffOnlyEvent = input.event.event_type === 4;
   const teams = [...input.teams].sort(
     (left, right) => left.team_number - right.team_number,
   );
@@ -82,32 +83,20 @@ export function computeEventScores(input: {
       const playoffContext = playoffs.results.get(team.key) ?? null;
       const awardNames = awardMap.get(team.key) ?? [];
       const awardBonusPoints = scoreAwards(awardNames) * 1.4;
-      const playoffWeight = playoffContext
+      const defaultScore = isPlayoffOnlyEvent
+        ? roundTo(clamp((playoffContext?.score ?? 0) + awardBonusPoints, -10, 10), 1)
+        : roundTo(
+            clamp(qualificationSnapshot.score + awardBonusPoints, -10, 10),
+            1,
+          );
+      const confidence = isPlayoffOnlyEvent
         ? clamp(
-            0.12 +
-              playoffContext.confidence * 0.14 +
-              Math.min(playoffContext.matchesPlayed / 5, 1) * 0.06,
-            0.12,
-            0.3,
+            (playoffContext?.confidence ?? 0) * 0.92 +
+              (awardNames.length ? 0.08 : 0),
+            0,
+            1,
           )
-        : 0;
-      const overallScore = roundTo(
-        clamp(
-          qualificationSnapshot.score * (1 - playoffWeight) +
-            (playoffContext?.score ?? 0) * playoffWeight +
-            awardBonusPoints,
-          -10,
-          10,
-        ),
-        1,
-      );
-      const confidence = clamp(
-        qualificationSnapshot.confidence * 0.8 +
-          (playoffContext ? playoffContext.confidence * 0.16 : 0) +
-          (awardNames.length ? 0.04 : 0),
-        0,
-        1,
-      );
+        : qualificationSnapshot.confidence;
       const scheduleAdvantage =
         qualificationSnapshot.partnerStrength === null &&
         qualificationSnapshot.opponentStrength === null
@@ -132,8 +121,8 @@ export function computeEventScores(input: {
         teamKey: team.key,
         teamNumber: team.team_number,
         teamName: resolveTeamName(team),
-        score: overallScore,
-        category: getCategoryForScore(overallScore),
+        score: defaultScore,
+        category: getCategoryForScore(defaultScore),
         confidence,
         confidenceLevel: getConfidenceLevel(confidence),
         record: qualificationSnapshot.record,
@@ -161,10 +150,18 @@ export function computeEventScores(input: {
     .filter(Boolean)
     .join(", ");
   const fieldStrength = classifyEventStrength(
-    scoredTeams.map((team) => ({
-      qualificationScore: team.qualification.score,
-      confidence: team.qualification.confidence,
-    })),
+    scoredTeams
+      .map((team) => ({
+        qualificationScore:
+          isPlayoffOnlyEvent && team.playoff?.score !== null
+            ? (team.playoff?.score ?? team.qualification.score)
+            : team.qualification.score,
+        confidence:
+          isPlayoffOnlyEvent && team.playoff
+            ? team.playoff.confidence
+            : team.qualification.confidence,
+      }))
+      .filter((team) => team.confidence > 0),
   );
 
   return {
@@ -172,6 +169,7 @@ export function computeEventScores(input: {
       key: input.event.key,
       name: input.event.name,
       eventType: input.event.event_type,
+      isPlayoffOnly: isPlayoffOnlyEvent,
       districtDisplay:
         input.event.district?.display_name ??
         input.event.district?.abbreviation ??

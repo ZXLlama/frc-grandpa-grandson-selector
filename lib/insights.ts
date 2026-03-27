@@ -1,5 +1,5 @@
 import { getDictionary } from "@/lib/i18n";
-import type { Locale, TeamScore } from "@/lib/types";
+import type { AnalysisTab, Locale, TeamScore } from "@/lib/types";
 
 function pushIfRoom(items: string[], text: string | null, limit: number) {
   if (!text || items.length >= limit || items.includes(text)) {
@@ -9,15 +9,19 @@ function pushIfRoom(items: string[], text: string | null, limit: number) {
   items.push(text);
 }
 
-export function buildTeamInsights(team: TeamScore, locale: Locale): string[] {
+export function buildTeamInsights(
+  team: TeamScore,
+  locale: Locale,
+  analysisTab: AnalysisTab,
+): string[] {
   const dictionary = getDictionary(locale);
   const insights: string[] = [];
   const qualification = team.qualification;
   const playoff = team.playoff;
 
-  if (qualification.matchesPlayed === 0) {
+  if (analysisTab === "qualification" && qualification.matchesPlayed === 0) {
     pushIfRoom(insights, dictionary.insights.noQualificationData, 4);
-  } else {
+  } else if (analysisTab === "qualification") {
     if (
       (qualification.rankPercentile ?? 0) >= 0.65 &&
       (qualification.inflationRisk ?? 0) >= 0.28
@@ -48,7 +52,7 @@ export function buildTeamInsights(team: TeamScore, locale: Locale): string[] {
     }
   }
 
-  if (playoff) {
+  if (analysisTab === "playoff" && playoff) {
     if (playoff.matchesPlayed === 0 && playoff.seed !== null) {
       pushIfRoom(insights, dictionary.insights.playoffSeedOnly, 4);
     } else if (playoff.matchesPlayed === 0) {
@@ -63,9 +67,14 @@ export function buildTeamInsights(team: TeamScore, locale: Locale): string[] {
     }
   }
 
-  if (team.confidenceLevel === "low") {
+  const confidenceLevel =
+    analysisTab === "playoff"
+      ? team.playoff?.confidenceLevel ?? team.confidenceLevel
+      : team.qualification.confidenceLevel;
+
+  if (confidenceLevel === "low") {
     pushIfRoom(insights, dictionary.insights.lowConfidence, 4);
-  } else if (team.confidenceLevel === "medium") {
+  } else if (confidenceLevel === "medium") {
     pushIfRoom(insights, dictionary.insights.mediumConfidence, 4);
   }
 

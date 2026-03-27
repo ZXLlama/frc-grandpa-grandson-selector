@@ -1,4 +1,4 @@
-import { clamp, roundTo } from "@/lib/constants";
+import { clamp, getConfidenceLevel, roundTo } from "@/lib/constants";
 import type {
   PlayoffContext,
   PlayoffFinish,
@@ -17,6 +17,7 @@ type AllianceAggregate = {
   label: string | null;
   seed: number | null;
   members: Set<string>;
+  backupTeams: Set<string>;
   matchesPlayed: number;
   wins: number;
   losses: number;
@@ -143,6 +144,11 @@ export function analyzePlayoffs(input: {
       label: alliance.name ?? (seed ? `Alliance ${seed}` : null),
       seed,
       members: new Set(members),
+      backupTeams: new Set(
+        alliance.backup?.in && teamSet.has(alliance.backup.in)
+          ? [alliance.backup.in]
+          : [],
+      ),
       matchesPlayed: 0,
       wins: 0,
       losses: 0,
@@ -183,6 +189,7 @@ export function analyzePlayoffs(input: {
         label: null,
         seed: null,
         members: new Set(cleanedTeamKeys),
+        backupTeams: new Set<string>(),
         matchesPlayed: 0,
         wins: 0,
         losses: 0,
@@ -332,12 +339,14 @@ export function analyzePlayoffs(input: {
         allianceBased: true,
         allianceLabel: aggregate.label,
         seed: aggregate.seed,
+        isBackup: aggregate.backupTeams.has(teamKey),
         matchesPlayed: aggregate.matchesPlayed,
         record,
         winRate,
         advancement,
         score,
         confidence,
+        confidenceLevel: getConfidenceLevel(confidence),
         consistency,
       });
     }

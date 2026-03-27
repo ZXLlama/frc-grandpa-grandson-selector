@@ -23,16 +23,22 @@ import {
   formatMetaList,
   formatSignedScore,
 } from "@/lib/presenters";
-import { sortDisplayedTeams } from "@/lib/sorting";
+import {
+  sortDisplayedTeams,
+  type DisplayedTeamEntry,
+} from "@/lib/sorting";
 import type {
+  AnalysisTab,
   EventOption,
   EventScoresResponse,
   EventsResponse,
   Locale,
   SortDirection,
+  TeamScore,
   TeamSortKey,
 } from "@/lib/types";
 
+import { AnalysisTabs } from "@/components/analysis-tabs";
 import { EventSelector } from "@/components/event-selector";
 import { LanguageToggle } from "@/components/language-toggle";
 import { ReferenceTeamSelector } from "@/components/reference-team-selector";
@@ -71,6 +77,14 @@ function buildYearOptions() {
   return years;
 }
 
+function getTabScore(team: TeamScore, analysisTab: AnalysisTab): number | null {
+  if (analysisTab === "playoff") {
+    return team.playoff?.score ?? null;
+  }
+
+  return team.qualification.score;
+}
+
 const YEAR_OPTIONS = buildYearOptions();
 
 export function HomeClient() {
@@ -88,6 +102,7 @@ export function HomeClient() {
   const [sortDirection, setSortDirection] = useState<SortDirection>(
     DEFAULT_SORT_DIRECTION,
   );
+  const [activeTab, setActiveTab] = useState<AnalysisTab>("qualification");
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [scores, setScores] = useState<EventScoresResponse | null>(null);
@@ -178,27 +193,95 @@ export function HomeClient() {
   }, [filteredEvents, selectedEventKey]);
 
   useEffect(() => {
-    if (!scores?.teams.length) {
-      setReferenceTeamKey(DEFAULT_REFERENCE_TEAM_KEY);
+    if (!scores?.event.key) {
       return;
     }
 
-    if (
-      referenceTeamKey &&
-      !scores.teams.some((team) => team.teamKey === referenceTeamKey)
-    ) {
-      setReferenceTeamKey(DEFAULT_REFERENCE_TEAM_KEY);
-    }
-  }, [scores, referenceTeamKey]);
+    setActiveTab(scores.event.isPlayoffOnly ? "playoff" : "qualification");
+  }, [scores?.event.key, scores?.event.isPlayoffOnly]);
 
   const selectedEvent =
     filteredEvents.find((event) => event.key === selectedEventKey) ??
     events.find((event) => event.key === selectedEventKey) ??
     null;
 
+  const eventMeta = selectedEvent
+    ? formatMetaList([
+        getEventTypeLabel(locale, selectedEvent.eventType),
+        selectedEvent.districtDisplay,
+        formatEventDateRange(locale, selectedEvent),
+        formatEventLocation(selectedEvent),
+      ])
+    : null;
+
+  const availableTabs: AnalysisTab[] = scores?.event.isPlayoffOnly
+    ? ["playoff"]
+    : ["qualification", "playoff"];
+  const playoffStarted = (scores?.event.playoffMatches ?? 0) > 0;
+  const tabTeams =
+    scores?.teams.filter((team) => {
+      if (activeTab === "playoff") {
+        return playoffStarted && Boolean(team.playoff);
+      }
+
+      return true;
+    }) ?? [];
+
+  useEffect(() => {
+    const visibleTeams =
+      scores?.teams.filter((team) => {
+        if (activeTab === "playoff") {
+          return playoffStarted && Boolean(team.playoff);
+        }
+
+        return true;
+      }) ?? [];
+
+    if (!visibleTeams.length) {
+      setReferenceTeamKey(DEFAULT_REFERENCE_TEAM_KEY);
+      return;
+    }
+
+    if (
+      referenceTeamKey &&
+      !visibleTeams.some((team) => team.teamKey === referenceTeamKey)
+    ) {
+      setReferenceTeamKey(DEFAULT_REFERENCE_TEAM_KEY);
+    }
+  }, [activeTab, playoffStarted, referenceTeamKey, scores?.teams]);
+
   const referenceTeam =
-    scores?.teams.find((team) => team.teamKey === referenceTeamKey) ?? null;
+    tabTeams.find((team) => team.teamKey === referenceTeamKey) ?? null;
   const useRelativeMode = Boolean(referenceTeam);
+  const displayedTeams = sortDisplayedTeams(
+    tabTeams
+      .map((team) => {
+        const baseScore = getTabScore(team, activeTab);
+
+        if (baseScore === null) {
+          return null;
+        }
+
+        const referenceScore = referenceTeam
+          ? getTabScore(referenceTeam, activeTab)
+          : null;
+        const displayedScore =
+          referenceScore === null
+            ? baseScore
+            : clamp(baseScore - referenceScore, -10, 10);
+
+        return {
+          team,
+          displayedScore,
+          displayedCategory: getCategoryForScore(displayedScore),
+          isReference: referenceTeam?.teamKey === team.teamKey,
+        };
+      })
+      .filter((entry): entry is DisplayedTeamEntry => entry !== null),
+    sortKey,
+    sortDirection,
+    activeTab,
+  );
 
   async function handleAnalyze() {
     if (!selectedEventKey) {
@@ -229,6 +312,7 @@ export function HomeClient() {
     setScores(null);
     setScoresError(null);
     setReferenceTeamKey(DEFAULT_REFERENCE_TEAM_KEY);
+    setActiveTab("qualification");
   }
 
   function handleYearChange(nextYear: number) {
@@ -253,32 +337,6 @@ export function HomeClient() {
     setSelectedEventKey(eventKey);
     resetDerivedState();
   }
-
-  const eventMeta = selectedEvent
-    ? formatMetaList([
-        getEventTypeLabel(locale, selectedEvent.eventType),
-        selectedEvent.districtDisplay,
-        formatEventDateRange(locale, selectedEvent),
-        formatEventLocation(selectedEvent),
-      ])
-    : null;
-
-  const displayedTeams = sortDisplayedTeams(
-    scores?.teams.map((team) => {
-      const displayedScore = referenceTeam
-        ? clamp(team.score - referenceTeam.score, -10, 10)
-        : team.score;
-
-      return {
-        team,
-        displayedScore,
-        displayedCategory: getCategoryForScore(displayedScore),
-        isReference: referenceTeam?.teamKey === team.teamKey,
-      };
-    }) ?? [],
-    sortKey,
-    sortDirection,
-  );
 
   return (
     <main className={styles.page}>
@@ -389,11 +447,20 @@ export function HomeClient() {
         ) : null}
 
         {scores ? (
+          <AnalysisTabs
+            activeTab={activeTab}
+            availableTabs={availableTabs}
+            dictionary={dictionary}
+            onChange={setActiveTab}
+          />
+        ) : null}
+
+        {scores && displayedTeams.length > 0 ? (
           <div className={styles.toolbarGrid}>
             <ReferenceTeamSelector
               dictionary={dictionary}
               referenceTeamKey={referenceTeamKey}
-              teams={scores.teams}
+              teams={tabTeams}
               onChange={setReferenceTeamKey}
             />
             <TeamSortControls
@@ -420,7 +487,15 @@ export function HomeClient() {
             ))}
           </div>
         ) : scores ? (
-          scores.teams.length ? (
+          activeTab === "playoff" && !playoffStarted ? (
+            <div className={styles.messageCard}>
+              {dictionary.playoffUnavailableMessage}
+            </div>
+          ) : activeTab === "qualification" && scores.event.isPlayoffOnly ? (
+            <div className={styles.messageCard}>
+              {dictionary.qualificationNotApplicableMessage}
+            </div>
+          ) : displayedTeams.length ? (
             <div className={styles.grid}>
               {displayedTeams.map(
                 ({
@@ -430,9 +505,10 @@ export function HomeClient() {
                   isReference,
                 }) => (
                   <TeamScoreCard
-                    key={team.teamKey}
+                    key={`${activeTab}-${team.teamKey}`}
                     team={team}
                     locale={locale}
+                    analysisTab={activeTab}
                     displayedScore={displayedScore}
                     displayedCategory={displayedCategory}
                     isReference={isReference}

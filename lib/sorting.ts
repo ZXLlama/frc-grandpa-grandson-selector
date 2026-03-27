@@ -1,4 +1,5 @@
 import type {
+  AnalysisTab,
   ScoreCategory,
   SortDirection,
   TeamScore,
@@ -24,15 +25,26 @@ export function sortDisplayedTeams(
   teams: DisplayedTeamEntry[],
   sortKey: TeamSortKey,
   direction: SortDirection,
+  analysisTab: AnalysisTab,
 ): DisplayedTeamEntry[] {
   return [...teams].sort((left, right) => {
     if (sortKey === "teamNumber") {
-      return compareNumbers(left.team.teamNumber, right.team.teamNumber, direction);
+      return compareNumbers(
+        Number(left.team.teamNumber),
+        Number(right.team.teamNumber),
+        direction,
+      );
     }
 
     if (sortKey === "ranking") {
-      const leftRank = left.team.ranking?.rank ?? Number.POSITIVE_INFINITY;
-      const rightRank = right.team.ranking?.rank ?? Number.POSITIVE_INFINITY;
+      const leftRank =
+        analysisTab === "playoff"
+          ? left.team.playoff?.seed ?? left.team.ranking?.rank ?? Number.POSITIVE_INFINITY
+          : left.team.ranking?.rank ?? Number.POSITIVE_INFINITY;
+      const rightRank =
+        analysisTab === "playoff"
+          ? right.team.playoff?.seed ?? right.team.ranking?.rank ?? Number.POSITIVE_INFINITY
+          : right.team.ranking?.rank ?? Number.POSITIVE_INFINITY;
 
       if (!Number.isFinite(leftRank) && !Number.isFinite(rightRank)) {
         return left.team.teamNumber - right.team.teamNumber;
@@ -47,7 +59,7 @@ export function sortDisplayedTeams(
       }
 
       const comparison = compareNumbers(leftRank, rightRank, direction);
-      return comparison || left.team.teamNumber - right.team.teamNumber;
+      return comparison || Number(left.team.teamNumber) - Number(right.team.teamNumber);
     }
 
     const comparison = compareNumbers(
@@ -56,6 +68,6 @@ export function sortDisplayedTeams(
       direction,
     );
 
-    return comparison || left.team.teamNumber - right.team.teamNumber;
+    return comparison || Number(left.team.teamNumber) - Number(right.team.teamNumber);
   });
 }

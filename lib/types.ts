@@ -13,6 +13,8 @@ export type TeamSortKey = "score" | "teamNumber" | "ranking";
 
 export type SortDirection = "asc" | "desc";
 
+export type AnalysisTab = "qualification" | "playoff";
+
 export type PlayoffFinish =
   | "none"
   | "octofinalist"
@@ -84,12 +86,14 @@ export interface PlayoffContext {
   allianceBased: true;
   allianceLabel: string | null;
   seed: number | null;
+  isBackup: boolean;
   matchesPlayed: number;
   record: TeamRecord;
   winRate: number | null;
   advancement: PlayoffFinish;
   score: number | null;
   confidence: number;
+  confidenceLevel: ConfidenceLevel;
   consistency: number | null;
 }
 
@@ -130,6 +134,7 @@ export interface EventSummary {
   key: string;
   name: string;
   eventType: number;
+  isPlayoffOnly: boolean;
   districtDisplay: string | null;
   location: string | null;
   startDate: string | null;

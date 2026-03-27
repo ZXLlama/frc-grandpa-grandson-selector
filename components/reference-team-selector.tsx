@@ -19,7 +19,7 @@ export function ReferenceTeamSelector({
   onChange,
 }: ReferenceTeamSelectorProps) {
   const sortedTeams = [...teams].sort(
-    (left, right) => left.teamNumber - right.teamNumber,
+    (left, right) => Number(left.teamNumber) - Number(right.teamNumber),
   );
 
   return (

@@ -1,5 +1,6 @@
 import { APP_NAME, getEventTypeKey } from "@/lib/constants";
 import type {
+  AnalysisTab,
   ConfidenceLevel,
   EventStrengthProfile,
   Locale,
@@ -55,14 +56,21 @@ export interface Dictionary {
   seedLabel: string;
   noPlayoffDataLabel: string;
   noPlayoffMatchesYet: string;
+  playoffUnavailableMessage: string;
+  qualificationNotApplicableMessage: string;
   sortByLabel: string;
   sortDirectionLabel: string;
   eventStrengthLabel: string;
   overallMethodNote: string;
+  expandDetailsLabel: string;
+  collapseDetailsLabel: string;
+  scoutingNotesLabel: string;
+  backupLabel: string;
   language: {
     traditionalChinese: string;
     english: string;
   };
+  analysisTabs: Record<AnalysisTab, string>;
   categories: Record<ScoreCategory, string>;
   categoryCaptions: Record<ScoreCategory, string>;
   eventTierLabels: Record<ScoreCategory, string>;
@@ -99,10 +107,10 @@ const dictionaries: Record<Locale, Dictionary> = {
   "zh-TW": {
     appTitle: APP_NAME,
     appSubtitle:
-      "使用 The Blue Alliance 的即時賽事資料，分開分析 qualification 與 playoff alliance context，快速看出誰是爺爺、爸爸、平輩、兒子、孫子。",
+      "使用 The Blue Alliance 的即時賽事資料，把積分賽與淘汰賽分開看，快速找出誰是爺爺、爸爸、平輩、兒子、孫子。",
     controlsTitle: "事件分析",
     modelHint:
-      "整體分數以 qualification 表現為主，並用賽程校正、搭檔與對手強度、近期趨勢、穩定度做校準；若已有 playoffs，會另外加入聯盟層級的 alliance context，不會直接把 eliminations 當成 qualification 重算。",
+      "積分賽與淘汰賽分開評分。積分賽會校正賽程、搭檔與對手強度、近期狀態與穩定度；淘汰賽則只看 alliance context，不把 eliminations 當成 qualification 重算。",
     poweredBy: "Powered by The Blue Alliance",
     yearLabel: "年份",
     districtLabel: "District 篩選",
@@ -119,40 +127,49 @@ const dictionaries: Record<Locale, Dictionary> = {
     analyzing: "分析中...",
     resultsTitle: "隊伍分析",
     teamsLabel: "隊伍數",
-    qualificationMatchesLabel: "Qualification 場次",
-    playoffMatchesLabel: "Playoff 場次",
+    qualificationMatchesLabel: "積分賽場次",
+    playoffMatchesLabel: "淘汰賽場次",
     emptyTitle: "先選一個賽事",
     emptyBody:
-      "選擇年份與賽事後，按下開始分析，系統會在伺服器端向 TBA 取得資料並計算整個 event 的分數。",
+      "選擇年份與賽事後，按下開始分析，系統會在伺服器端向 TBA 取得資料並計算 event 分析結果。",
     noTeamsTitle: "這個賽事目前還沒有可分析的隊伍資料。",
-    sampleMatchesLabel: "Qualification 已打",
-    recordLabel: "Qualification 戰績",
+    sampleMatchesLabel: "已打場次",
+    recordLabel: "戰績",
     confidenceLabel: "資料信心",
     confidenceLevelLabel: "信心等級",
     rankLabel: "排名",
     unrankedLabel: "未排名",
     referenceModeLabel: "輩分基準",
     referenceModeHint:
-      "預設用整個 event 的模型判定輩分，也可以切換成以特定隊伍為基準，直接看相對差距。",
-    defaultReferenceOption: "預設模式（event 基準）",
+      "預設用目前分頁的模型判定輩分，也可以切換成以特定隊伍為基準，直接看相對差距。",
+    defaultReferenceOption: "預設模式（目前分頁基準）",
     referenceBadge: "基準隊伍",
-    overallScoreLabel: "整體分數",
+    overallScoreLabel: "分數",
     relativeScoreLabel: "相對分數",
-    qualificationStrengthLabel: "Qualification 強度",
-    playoffContextLabel: "Playoff 聯盟脈絡",
+    qualificationStrengthLabel: "積分賽評分",
+    playoffContextLabel: "淘汰賽評分",
     playoffAllianceNote:
-      "Playoff 表現以固定 alliance 為單位評估，代表聯盟脈絡，不會被當成純個人實力。",
+      "淘汰賽成績以固定 alliance 為單位解讀，代表聯盟脈絡，不是單人單隊神化。",
     seedLabel: "聯盟種子",
-    noPlayoffDataLabel: "尚無 playoff 資料",
-    noPlayoffMatchesYet: "已知 alliance context，但尚未出現 playoff 比賽結果。",
+    noPlayoffDataLabel: "尚無淘汰賽資料",
+    noPlayoffMatchesYet: "已知 alliance context，但還沒有足夠的淘汰賽結果。",
+    playoffUnavailableMessage: "尚未進入淘汰賽",
+    qualificationNotApplicableMessage: "Einstein 不適用積分賽分析。",
     sortByLabel: "排序方式",
     sortDirectionLabel: "方向",
     eventStrengthLabel: "場次強度",
-    overallMethodNote:
-      "整體分數以 qualification 為主；若已有 elimination 資料，只會用較低權重加入 alliance-based playoff context。",
+    overallMethodNote: "目前改成分頁顯示，不再把積分賽和淘汰賽硬混成單一分數。",
+    expandDetailsLabel: "展開分析",
+    collapseDetailsLabel: "收合分析",
+    scoutingNotesLabel: "數據吐槽",
+    backupLabel: "Backup",
     language: {
       traditionalChinese: "繁中",
       english: "EN",
+    },
+    analysisTabs: {
+      qualification: "積分賽",
+      playoff: "淘汰賽",
     },
     categories: {
       grandpa: "爺爺",
@@ -218,23 +235,23 @@ const dictionaries: Record<Locale, Dictionary> = {
       other: "其他",
     },
     insights: {
-      noQualificationData: "Qualification 資料仍然很少，目前先維持保守判斷。",
-      highRankSoftSchedule: "排名看起來不錯，但 qualification 賽程偏順，可能有被好搭檔或較軟對手放大的成分。",
-      underseededStrongMetrics: "名次比底層指標還低，屬於可能被低估或 underseeded 的隊伍。",
-      consistentQualification: "Qualification 表現穩定，場場貢獻落差不大。",
-      stableContribution: "整體輸出穩定，沒有明顯大起大落。",
-      risingForm: "最近幾場 qualification 狀態正在往上走。",
-      slippingForm: "最近幾場 qualification 狀態有些降溫。",
-      toughSchedule: "面對的對手偏硬，賽程難度比排名表面看起來更高。",
-      softSchedule: "目前賽程偏軟，表面戰績需要再校正解讀。",
-      volatilePerformance: "表現波動偏大，單場上下限差距明顯。",
-      playoffAllianceBoost: "Playoff 結果主要來自 alliance context，不能直接當成純個人 domination。",
-      playoffAllianceValidated: "Qualification 底層表現夠強，playoff alliance 成績也有跟上。",
-      playoffSeedOnly: "Alliance 已經成形，但 playoff 比賽樣本還不夠多。",
-      playoffNoMatches: "已有 alliance 資訊，但還沒有 playoff 比賽可以判斷深度。",
-      lowConfidence: "目前樣本有限，分數信心仍偏低。",
-      mediumConfidence: "資料已開始成形，但仍保留一些不確定性。",
-      neutral: "目前底層指標大致落在 event 中間帶。",
+      noQualificationData: "積分賽樣本太少，現在硬吹或硬酸都不太公平。",
+      highRankSoftSchedule: "排名不差，但賽程偏軟，多少有點被好搭檔抬上去。",
+      underseededStrongMetrics: "種子比底層數據還低，屬於被排位低估的類型。",
+      consistentQualification: "積分賽輸出穩，幾乎每場都在交功課。",
+      stableContribution: "底層貢獻偏穩，不太像抽卡隊。",
+      risingForm: "最近幾場越打越順，狀態往上走。",
+      slippingForm: "最近幾場有點掉漆，熱度在退。",
+      toughSchedule: "對手偏硬，表面排名沒有把難度完全算進去。",
+      softSchedule: "賽程偏甜，表面戰績需要打折看。",
+      volatilePerformance: "波動很大，高的時候很高，炸的時候也不客氣。",
+      playoffAllianceBoost: "有進淘汰賽，但更像是 alliance 帶飛，不是單隊統治。",
+      playoffAllianceValidated: "積分賽底子夠硬，淘汰賽 alliance 成績也跟得上。",
+      playoffSeedOnly: "聯盟已經成形，但淘汰賽樣本還不夠你下狠話。",
+      playoffNoMatches: "有 alliance 資訊，但還沒有淘汰賽結果可嘴。",
+      lowConfidence: "資料還薄，先別急著封神或判死刑。",
+      mediumConfidence: "資料差不多成形了，但還有一些灰區。",
+      neutral: "目前看起來大致落在 event 中間帶。",
     },
     relativeComparisonSelf: "這支隊伍就是目前選擇的基準。",
     relativeComparisonVs: "相對於 #%TEAM%：%SCORE%",
@@ -242,10 +259,10 @@ const dictionaries: Record<Locale, Dictionary> = {
   en: {
     appTitle: APP_NAME,
     appSubtitle:
-      "Use live The Blue Alliance event data to separate qualification strength from playoff alliance context and quickly see who looks like a Grandpa, Father, Peer, Son, or Grandson.",
+      "Use live The Blue Alliance event data to score qualification and playoffs separately, then quickly see who looks like a Grandpa, Father, Peer, Son, or Grandson.",
     controlsTitle: "Event Analysis",
     modelHint:
-      "Overall score is qualification-led and calibrated with schedule context, partner and opponent strength, trend, and stability. If playoffs exist, alliance-based elimination context is added separately instead of being merged into qualification as if it were the same thing.",
+      "Qualification and playoffs are scored on separate tracks. Qualification corrects for schedule, partner and opponent strength, trend, and stability; playoffs stay alliance-based and never get blended in as fake qualification data.",
     poweredBy: "Powered by The Blue Alliance",
     yearLabel: "Year",
     districtLabel: "District Filter",
@@ -266,37 +283,48 @@ const dictionaries: Record<Locale, Dictionary> = {
     playoffMatchesLabel: "Playoff Matches",
     emptyTitle: "Pick an event first",
     emptyBody:
-      "Choose a year and event, then press Analyze. The server will pull TBA data and compute the full event view.",
+      "Choose a year and event, then press Analyze. The server will pull TBA data and compute the event view.",
     noTeamsTitle: "This event does not have team data available yet.",
-    sampleMatchesLabel: "Qualification Played",
-    recordLabel: "Qualification Record",
+    sampleMatchesLabel: "Matches Played",
+    recordLabel: "Record",
     confidenceLabel: "Data Confidence",
     confidenceLevelLabel: "Confidence Band",
     rankLabel: "Rank",
     unrankedLabel: "Unranked",
     referenceModeLabel: "Kinship Basis",
     referenceModeHint:
-      "Default mode uses the event-wide model, or switch to a specific team to compare everyone against that baseline.",
-    defaultReferenceOption: "Default mode (event baseline)",
+      "Default mode uses the current tab's model, or switch to a specific team to compare everyone against that baseline.",
+    defaultReferenceOption: "Default mode (current tab baseline)",
     referenceBadge: "Reference Team",
-    overallScoreLabel: "Overall Score",
+    overallScoreLabel: "Score",
     relativeScoreLabel: "Relative Score",
-    qualificationStrengthLabel: "Qualification Strength",
-    playoffContextLabel: "Playoff Alliance Context",
+    qualificationStrengthLabel: "Qualification Score",
+    playoffContextLabel: "Playoff Score",
     playoffAllianceNote:
-      "Playoff performance is evaluated at the fixed-alliance level. It adds context, not a naive solo-strength claim.",
+      "Playoff performance is read at the fixed-alliance level. It is alliance context, not fake solo hero ball.",
     seedLabel: "Alliance Seed",
     noPlayoffDataLabel: "No playoff data yet",
     noPlayoffMatchesYet:
       "Alliance context exists, but there are not enough playoff matches yet to judge depth.",
+    playoffUnavailableMessage: "Playoff data not available yet",
+    qualificationNotApplicableMessage:
+      "Qualification analysis does not apply to Einstein.",
     sortByLabel: "Sort By",
     sortDirectionLabel: "Direction",
     eventStrengthLabel: "Event Strength",
     overallMethodNote:
-      "Overall score leans on qualification. Elimination data only adds lower-weight alliance-based playoff context when available.",
+      "Tabs now keep qualification and playoff scoring separate instead of blending them into one score.",
+    expandDetailsLabel: "Expand Analysis",
+    collapseDetailsLabel: "Collapse Analysis",
+    scoutingNotesLabel: "Scouting Notes",
+    backupLabel: "Backup",
     language: {
       traditionalChinese: "繁中",
       english: "EN",
+    },
+    analysisTabs: {
+      qualification: "Qualification",
+      playoff: "Playoff",
     },
     categories: {
       grandpa: "Grandpa",
@@ -362,33 +390,34 @@ const dictionaries: Record<Locale, Dictionary> = {
       other: "Other",
     },
     insights: {
-      noQualificationData: "Qualification data is still sparse, so the read stays conservative.",
+      noQualificationData:
+        "Qualification data is too thin right now, so any hot take would be fake confidence.",
       highRankSoftSchedule:
-        "The rank looks strong, but the qualification schedule has been favorable enough to inflate the surface result.",
+        "The rank looks good, but the schedule has been soft enough that the surface result feels a little borrowed.",
       underseededStrongMetrics:
-        "The seed is lower than the underlying qualification profile suggests, so this team may be underseeded.",
+        "The seed is lower than the underlying metrics suggest. Hidden strength alert.",
       consistentQualification:
-        "Qualification performance has been steady, with dependable match-to-match contribution.",
+        "Qualification output has been steady. This team keeps showing up to work.",
       stableContribution:
-        "Underlying contribution looks stable rather than swingy.",
-      risingForm: "Recent qualification form is trending upward.",
+        "Underlying contribution looks stable rather than random.",
+      risingForm: "Recent qualification form is trending up.",
       slippingForm: "Recent qualification form has cooled off.",
       toughSchedule:
-        "The schedule has been tougher than the rank alone suggests.",
+        "The schedule has been tougher than the rank alone admits.",
       softSchedule:
-        "The schedule has been softer than average, so the raw record needs extra calibration.",
+        "The schedule has been friendly, so the record needs a little skepticism.",
       volatilePerformance:
-        "Performance has been volatile, with large match-to-match swings.",
+        "Volatile team: high highs, ugly lows, and very little chill in between.",
       playoffAllianceBoost:
-        "Playoff results were helped more by alliance context than by dominant solo qualification data.",
+        "The playoff presence looks more alliance-powered than individually dominant.",
       playoffAllianceValidated:
-        "Strong qualification data has been reinforced by the alliance's playoff run.",
+        "Strong qualification data has actually held up once the alliance games started.",
       playoffSeedOnly:
-        "Alliance selection is set, but there is not enough playoff match data yet.",
+        "Alliance selection is set, but there still is not enough playoff match data to talk big.",
       playoffNoMatches:
-        "Alliance information exists, but there are still no playoff matches to evaluate.",
-      lowConfidence: "Data remains limited, so confidence is low.",
-      mediumConfidence: "The read is usable, but some uncertainty remains.",
+        "Alliance info exists, but there are still no playoff matches to roast properly.",
+      lowConfidence: "Data is still limited, so confidence is low.",
+      mediumConfidence: "The read is usable, but some uncertainty is still hanging around.",
       neutral: "The current profile sits near the event middle.",
     },
     relativeComparisonSelf: "This team is the selected comparison baseline.",
