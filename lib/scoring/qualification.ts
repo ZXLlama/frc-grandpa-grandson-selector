@@ -7,11 +7,15 @@ import {
 import type {
   QualificationSnapshot,
   RankingSnapshot,
+  TeamRecord,
 } from "@/lib/types";
 import type {
+  TbaCoprs,
+  TbaDistrictPoints,
+  TbaEventInsights,
+  TbaEventTeamStatuses,
   TbaMatchSimple,
   TbaOprs,
-  TbaRankingEntry,
   TbaRankings,
   TbaTeamSimple,
 } from "@/lib/server/tba";
@@ -28,6 +32,13 @@ import {
   isPlayedMatch,
 } from "@/lib/scoring/shared";
 
+type BreakdownMetrics = {
+  cleanScore: number | null;
+  foulReliance: number | null;
+  autoShare: number | null;
+  endgameShare: number | null;
+};
+
 type QualificationAppearance = {
   order: number;
   ownScore: number;
@@ -35,6 +46,7 @@ type QualificationAppearance = {
   performance: number;
   partnerKeys: string[];
   opponentKeys: string[];
+  breakdown: BreakdownMetrics;
 };
 
 type QualificationAggregate = {
@@ -51,30 +63,98 @@ type QualificationMetrics = QualificationSnapshot & {
   rawSignal: number;
 };
 
-function getRankingSignal(
-  ranking: TbaRankingEntry | null,
-  rankingCount: number,
-): number | null {
-  if (!ranking) {
-    return null;
-  }
+type ComponentSignals = {
+  autoSignals: Map<string, number | null>;
+  endgameSignals: Map<string, number | null>;
+  breadthSignals: Map<string, number | null>;
+};
 
-  if (rankingCount <= 1) {
-    return 0;
-  }
-
-  return clamp((1 - (ranking.rank - 1) / (rankingCount - 1)) * 2 - 1, -1, 1);
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
-function getRankPercentile(
-  ranking: TbaRankingEntry | null,
-  rankingCount: number,
-): number | null {
-  if (!ranking || rankingCount <= 1) {
+function getStatusQualRank(status: unknown): number | null {
+  if (!isRecord(status)) {
     return null;
   }
 
-  return clamp(1 - (ranking.rank - 1) / (rankingCount - 1), 0, 1);
+  const qual = isRecord(status.qual) ? status.qual : null;
+  const ranking = qual && isRecord(qual.ranking) ? qual.ranking : null;
+
+  if (ranking && typeof ranking.rank === "number") {
+    return ranking.rank;
+  }
+
+  if (qual && typeof qual.rank === "number") {
+    return qual.rank;
+  }
+
+  return null;
+}
+
+function getStatusMatchesPlayed(status: unknown): number | null {
+  if (!isRecord(status)) {
+    return null;
+  }
+
+  const qual = isRecord(status.qual) ? status.qual : null;
+  const ranking = qual && isRecord(qual.ranking) ? qual.ranking : null;
+
+  if (ranking && typeof ranking.matches_played === "number") {
+    return ranking.matches_played;
+  }
+
+  if (qual && typeof qual.num_matches_played === "number") {
+    return qual.num_matches_played;
+  }
+
+  return null;
+}
+
+function getStatusRecord(status: unknown): TeamRecord | null {
+  if (!isRecord(status)) {
+    return null;
+  }
+
+  const qual = isRecord(status.qual) ? status.qual : null;
+  const ranking = qual && isRecord(qual.ranking) ? qual.ranking : null;
+  const record = ranking && isRecord(ranking.record)
+    ? ranking.record
+    : qual && isRecord(qual.record)
+      ? qual.record
+      : null;
+
+  if (!record) {
+    return null;
+  }
+
+  return {
+    wins: typeof record.wins === "number" ? record.wins : 0,
+    losses: typeof record.losses === "number" ? record.losses : 0,
+    ties: typeof record.ties === "number" ? record.ties : 0,
+  };
+}
+
+function getRankingSignalFromRank(
+  rank: number | null,
+  rankingCount: number,
+): number | null {
+  if (rank === null || rankingCount <= 1) {
+    return null;
+  }
+
+  return clamp((1 - (rank - 1) / (rankingCount - 1)) * 2 - 1, -1, 1);
+}
+
+function getRankPercentileFromRank(
+  rank: number | null,
+  rankingCount: number,
+): number | null {
+  if (rank === null || rankingCount <= 1) {
+    return null;
+  }
+
+  return clamp(1 - (rank - 1) / (rankingCount - 1), 0, 1);
 }
 
 function averageSignals(values: Array<number | null | undefined>): number | null {
@@ -90,15 +170,16 @@ function averageSignals(values: Array<number | null | undefined>): number | null
 }
 
 function toRankingSnapshot(
-  ranking: TbaRankingEntry | null,
+  rank: number | null,
+  matchesPlayed: number | null,
 ): RankingSnapshot | null {
-  if (!ranking) {
+  if (rank === null) {
     return null;
   }
 
   return {
-    rank: ranking.rank,
-    matchesPlayed: ranking.matches_played,
+    rank,
+    matchesPlayed: matchesPlayed ?? 0,
   };
 }
 
@@ -147,11 +228,169 @@ function getScheduleAverage(
   return mean(values);
 }
 
+function collectBreakdownBuckets(
+  node: unknown,
+  bucket: { auto: number; endgame: number; foul: number },
+  path: string[] = [],
+) {
+  if (typeof node === "number" && Number.isFinite(node)) {
+    const joined = path.join(".").toLowerCase();
+    const key = path[path.length - 1]?.toLowerCase() ?? "";
+    const pointsLike =
+      joined.includes("points") ||
+      key.endsWith("points") ||
+      key === "total";
+
+    if (!pointsLike) {
+      return;
+    }
+
+    if (joined.includes("foul") || joined.includes("penalty")) {
+      bucket.foul += node;
+    }
+
+    if (joined.includes("auto") && joined.includes("points")) {
+      bucket.auto += node;
+    }
+
+    if (
+      (joined.includes("endgame") ||
+        joined.includes("climb") ||
+        joined.includes("charge") ||
+        joined.includes("park") ||
+        joined.includes("hang") ||
+        joined.includes("cage") ||
+        joined.includes("tower") ||
+        joined.includes("trap")) &&
+      joined.includes("points")
+    ) {
+      bucket.endgame += node;
+    }
+
+    return;
+  }
+
+  if (!isRecord(node)) {
+    return;
+  }
+
+  for (const [key, value] of Object.entries(node)) {
+    collectBreakdownBuckets(value, bucket, [...path, key]);
+  }
+}
+
+function extractBreakdownMetrics(
+  match: TbaMatchSimple,
+  color: "red" | "blue",
+  ownScore: number,
+): BreakdownMetrics {
+  if (!isRecord(match.score_breakdown)) {
+    return {
+      cleanScore: null,
+      foulReliance: null,
+      autoShare: null,
+      endgameShare: null,
+    };
+  }
+
+  const allianceBreakdown = match.score_breakdown[color];
+
+  if (!isRecord(allianceBreakdown)) {
+    return {
+      cleanScore: null,
+      foulReliance: null,
+      autoShare: null,
+      endgameShare: null,
+    };
+  }
+
+  const bucket = { auto: 0, endgame: 0, foul: 0 };
+  collectBreakdownBuckets(allianceBreakdown, bucket);
+
+  const cleanScore = Math.max(ownScore - bucket.foul, 0);
+
+  return {
+    cleanScore,
+    foulReliance:
+      ownScore > 0 ? clamp(bucket.foul / Math.max(ownScore, 1), 0, 1) : null,
+    autoShare:
+      cleanScore > 0 ? clamp(bucket.auto / cleanScore, 0, 1.2) : null,
+    endgameShare:
+      cleanScore > 0 ? clamp(bucket.endgame / cleanScore, 0, 1.2) : null,
+  };
+}
+
+function isAutoComponent(name: string): boolean {
+  return /auto/i.test(name);
+}
+
+function isEndgameComponent(name: string): boolean {
+  return /(endgame|climb|charge|park|hang|tower|cage|trap)/i.test(name);
+}
+
+function buildComponentSignals(
+  teams: TbaTeamSimple[],
+  coprs: TbaCoprs | null,
+): ComponentSignals {
+  const componentEntries = Object.entries(coprs ?? {}).filter(
+    ([, values]) => values && typeof values === "object",
+  );
+  const normalizedByComponent = componentEntries.map(([name, values]) => [
+    name,
+    normalizeDistribution(
+      new Map(
+        teams.map((team) => [
+          team.key,
+          typeof values[team.key] === "number" ? values[team.key] : null,
+        ]),
+      ),
+      1.55,
+    ),
+  ]) as Array<[string, Map<string, number | null>]>;
+
+  const autoSignals = new Map<string, number | null>();
+  const endgameSignals = new Map<string, number | null>();
+  const breadthSignals = new Map<string, number | null>();
+
+  for (const team of teams) {
+    const autoValues: Array<number | null> = [];
+    const endgameValues: Array<number | null> = [];
+    const allValues: Array<number | null> = [];
+
+    for (const [name, values] of normalizedByComponent) {
+      const signal = values.get(team.key) ?? null;
+      allValues.push(signal);
+
+      if (isAutoComponent(name)) {
+        autoValues.push(signal);
+      }
+
+      if (isEndgameComponent(name)) {
+        endgameValues.push(signal);
+      }
+    }
+
+    autoSignals.set(team.key, averageSignals(autoValues));
+    endgameSignals.set(team.key, averageSignals(endgameValues));
+    breadthSignals.set(team.key, averageSignals(allValues));
+  }
+
+  return {
+    autoSignals,
+    endgameSignals,
+    breadthSignals,
+  };
+}
+
 export function analyzeQualification(input: {
   teams: TbaTeamSimple[];
   rankings: TbaRankings;
   matches: TbaMatchSimple[];
   oprs: TbaOprs | null;
+  coprs: TbaCoprs | null;
+  insights: TbaEventInsights | null;
+  teamStatuses: TbaEventTeamStatuses | null;
+  districtPoints: TbaDistrictPoints | null;
 }): {
   qualificationMatches: TbaMatchSimple[];
   results: Map<string, QualificationMetrics>;
@@ -161,8 +400,9 @@ export function analyzeQualification(input: {
   );
   const teamSet = new Set(teams.map((team) => team.key));
   const rankings = input.rankings?.rankings ?? [];
-  const rankingCount = rankings.length;
   const rankingMap = new Map(rankings.map((ranking) => [ranking.team_key, ranking]));
+  const teamStatuses = new Map(Object.entries(input.teamStatuses ?? {}));
+  const rankingUniverse = Math.max(rankings.length, teams.length);
   const qualificationMatches = input.matches
     .filter((match) => isPlayedMatch(match) && match.comp_level === "qm")
     .sort((left, right) => getMatchOrder(left) - getMatchOrder(right));
@@ -188,6 +428,7 @@ export function analyzeQualification(input: {
     const order = getMatchOrder(match);
 
     const processAlliance = (
+      color: "red" | "blue",
       ownAlliance: TbaMatchSimple["alliances"]["red"],
       opponentAlliance: TbaMatchSimple["alliances"]["blue"],
     ) => {
@@ -196,6 +437,7 @@ export function analyzeQualification(input: {
       const margin = ownScore - opponentScore;
       const didWin = margin > 0;
       const didLose = margin < 0;
+      const breakdown = extractBreakdownMetrics(match, color, ownScore);
 
       eventAllianceScores.push(ownScore);
       eventMargins.push(margin);
@@ -230,12 +472,13 @@ export function analyzeQualification(input: {
           opponentKeys: opponentAlliance.team_keys.filter((opponentKey) =>
             teamSet.has(opponentKey),
           ),
+          breakdown,
         });
       }
     };
 
-    processAlliance(match.alliances.red, match.alliances.blue);
-    processAlliance(match.alliances.blue, match.alliances.red);
+    processAlliance("red", match.alliances.red, match.alliances.blue);
+    processAlliance("blue", match.alliances.blue, match.alliances.red);
   }
 
   const scoreMean = mean(eventAllianceScores);
@@ -266,7 +509,7 @@ export function analyzeQualification(input: {
             : 0;
 
       appearance.performance = clamp(
-        marginSignal * 0.56 + scoreSignal * 0.24 + outcomeSignal * 0.2,
+        marginSignal * 0.52 + scoreSignal * 0.24 + outcomeSignal * 0.18,
         -1,
         1,
       );
@@ -276,11 +519,23 @@ export function analyzeQualification(input: {
   const oprValues = new Map<string, number | null>();
   const ccwmValues = new Map<string, number | null>();
   const allianceScoreValues = new Map<string, number | null>();
+  const cleanScoreValues = new Map<string, number | null>();
+  const ceilingValues = new Map<string, number | null>();
+  const floorValues = new Map<string, number | null>();
+  const foulRelianceValues = new Map<string, number | null>();
+  const autoBreakdownValues = new Map<string, number | null>();
+  const endgameBreakdownValues = new Map<string, number | null>();
   const rankingSignals = new Map<string, number | null>();
+  const rankingTiebreakers = new Map<string, number | null>();
+  const districtPointTotals = new Map<string, number | null>();
+
+  const componentSignals = buildComponentSignals(teams, input.coprs);
 
   for (const team of teams) {
     const aggregate = aggregates.get(team.key)!;
     const ranking = rankingMap.get(team.key) ?? null;
+    const status = teamStatuses.get(team.key) ?? null;
+    const rankValue = ranking?.rank ?? getStatusQualRank(status);
 
     oprValues.set(team.key, input.oprs?.oprs?.[team.key] ?? null);
     ccwmValues.set(team.key, input.oprs?.ccwms?.[team.key] ?? null);
@@ -288,12 +543,64 @@ export function analyzeQualification(input: {
       team.key,
       aggregate.ownScores.length ? mean(aggregate.ownScores) : null,
     );
-    rankingSignals.set(team.key, getRankingSignal(ranking, rankingCount));
+    cleanScoreValues.set(
+      team.key,
+      averageSignals(
+        aggregate.appearances.map((appearance) => appearance.breakdown.cleanScore),
+      ),
+    );
+    ceilingValues.set(
+      team.key,
+      aggregate.ownScores.length ? Math.max(...aggregate.ownScores) : null,
+    );
+    floorValues.set(
+      team.key,
+      aggregate.ownScores.length ? Math.min(...aggregate.ownScores) : null,
+    );
+    foulRelianceValues.set(
+      team.key,
+      averageSignals(
+        aggregate.appearances.map((appearance) => appearance.breakdown.foulReliance),
+      ),
+    );
+    autoBreakdownValues.set(
+      team.key,
+      averageSignals(
+        aggregate.appearances.map((appearance) => appearance.breakdown.autoShare),
+      ),
+    );
+    endgameBreakdownValues.set(
+      team.key,
+      averageSignals(
+        aggregate.appearances.map((appearance) => appearance.breakdown.endgameShare),
+      ),
+    );
+    rankingSignals.set(team.key, getRankingSignalFromRank(rankValue, rankingUniverse));
+    rankingTiebreakers.set(
+      team.key,
+      ranking
+        ? [...ranking.sort_orders, ...ranking.extra_stats].reduce(
+            (sum, value) => sum + value,
+            0,
+          )
+        : null,
+    );
+    districtPointTotals.set(
+      team.key,
+      input.districtPoints?.points?.[team.key]?.total ?? null,
+    );
   }
 
   const normalizedOprs = normalizeDistribution(oprValues, 1.75);
   const normalizedCcwms = normalizeDistribution(ccwmValues, 1.65);
   const normalizedAllianceScores = normalizeDistribution(allianceScoreValues, 1.6);
+  const normalizedCleanScores = normalizeDistribution(cleanScoreValues, 1.5);
+  const normalizedCeilings = normalizeDistribution(ceilingValues, 1.55);
+  const normalizedFloors = normalizeDistribution(floorValues, 1.55);
+  const normalizedAutoBreakdown = normalizeDistribution(autoBreakdownValues, 1.3);
+  const normalizedEndgameBreakdown = normalizeDistribution(endgameBreakdownValues, 1.3);
+  const normalizedTiebreakers = normalizeDistribution(rankingTiebreakers, 1.45);
+  const normalizedDistrictPoints = normalizeDistribution(districtPointTotals, 1.45);
 
   let ratings = new Map<string, number>();
 
@@ -302,6 +609,8 @@ export function analyzeQualification(input: {
       normalizedCcwms.get(team.key) ?? null,
       normalizedOprs.get(team.key) ?? null,
       rankingSignals.get(team.key) ?? null,
+      normalizedCleanScores.get(team.key) ?? null,
+      componentSignals.breadthSignals.get(team.key) ?? null,
     ]);
 
     ratings.set(team.key, clamp(initial ?? 0, -1, 1));
@@ -317,6 +626,8 @@ export function analyzeQualification(input: {
         normalizedCcwms.get(team.key) ?? null,
         normalizedOprs.get(team.key) ?? null,
         rankingSignals.get(team.key) ?? null,
+        normalizedCleanScores.get(team.key) ?? null,
+        componentSignals.breadthSignals.get(team.key) ?? null,
       ]) ?? priorRating;
 
       if (!aggregate.appearances.length) {
@@ -331,7 +642,7 @@ export function analyzeQualification(input: {
           getScheduleAverage(appearance.opponentKeys, ratings) ?? 0;
 
         return clamp(
-          appearance.performance - partnerAverage * 0.34 + opponentAverage * 0.26,
+          appearance.performance - partnerAverage * 0.34 + opponentAverage * 0.28,
           -1.4,
           1.4,
         );
@@ -339,7 +650,7 @@ export function analyzeQualification(input: {
 
       nextValues.set(
         team.key,
-        clamp(mean(adjustedAppearances) * 0.76 + baseSignal * 0.24, -1.4, 1.4),
+        clamp(mean(adjustedAppearances) * 0.72 + baseSignal * 0.28, -1.4, 1.4),
       );
     }
 
@@ -350,29 +661,62 @@ export function analyzeQualification(input: {
   }
 
   const rawSignals = new Map<string, number | null>();
-  const metricsByTeam = new Map<string, Omit<QualificationMetrics, "score" | "category" | "confidence" | "confidenceLevel"> & {
-    baseConfidence: number;
-  }>();
+  const metricsByTeam = new Map<
+    string,
+    Omit<
+      QualificationMetrics,
+      "score" | "category" | "confidence" | "confidenceLevel"
+    > & {
+      baseConfidence: number;
+    }
+  >();
 
   for (const team of teams) {
     const aggregate = aggregates.get(team.key)!;
     const ranking = rankingMap.get(team.key) ?? null;
-    const record = getRankingRecord(ranking, {
-      wins: aggregate.wins,
-      losses: aggregate.losses,
-      ties: aggregate.ties,
-    });
+    const status = teamStatuses.get(team.key) ?? null;
+    const statusRank = getStatusQualRank(status);
+    const rankValue = ranking?.rank ?? statusRank;
+    const matchesPlayedFallback = getStatusMatchesPlayed(status);
+    const statusRecord = getStatusRecord(status);
+    const record = ranking
+      ? getRankingRecord(ranking, {
+          wins: aggregate.wins,
+          losses: aggregate.losses,
+          ties: aggregate.ties,
+        })
+      : statusRecord ?? {
+          wins: aggregate.wins,
+          losses: aggregate.losses,
+          ties: aggregate.ties,
+        };
     const rankingSignal = rankingSignals.get(team.key) ?? null;
     const adjustedPerformance = ratings.get(team.key) ?? null;
+    const cleanScoring = normalizedCleanScores.get(team.key) ?? null;
+    const scoringCeiling = normalizedCeilings.get(team.key) ?? null;
+    const scoringFloor = normalizedFloors.get(team.key) ?? null;
+    const autonomousImpact = averageSignals([
+      normalizedAutoBreakdown.get(team.key) ?? null,
+      componentSignals.autoSignals.get(team.key) ?? null,
+    ]);
+    const endgameImpact = averageSignals([
+      normalizedEndgameBreakdown.get(team.key) ?? null,
+      componentSignals.endgameSignals.get(team.key) ?? null,
+    ]);
     const scorePotential = averageSignals([
       normalizedAllianceScores.get(team.key) ?? null,
       normalizedOprs.get(team.key) ?? null,
+      componentSignals.breadthSignals.get(team.key) ?? null,
+      cleanScoring,
     ]);
     const appearancePerformances = aggregate.appearances.map(
       (appearance) => appearance.performance,
     );
     const trend = getTrendSignal(aggregate.appearances);
-    const consistency = getStabilitySignal(appearancePerformances);
+    const consistency = averageSignals([
+      getStabilitySignal(appearancePerformances),
+      scoringFloor,
+    ]);
     const partnerStrength = averageSignals(
       aggregate.appearances.map((appearance) =>
         getScheduleAverage(appearance.partnerKeys, ratings),
@@ -387,7 +731,12 @@ export function analyzeQualification(input: {
       partnerStrength === null && opponentStrength === null
         ? null
         : clamp((opponentStrength ?? 0) - (partnerStrength ?? 0), -1, 1);
-    const winRate = getWinRate(record, ranking?.matches_played ?? aggregate.playedMatches);
+    const matchesPlayed = Math.max(
+      aggregate.playedMatches,
+      ranking?.matches_played ?? 0,
+      matchesPlayedFallback ?? 0,
+    );
+    const winRate = getWinRate(record, matchesPlayed);
     const winRateSignal =
       winRate === null ? null : clamp((winRate - 0.5) * 2, -1, 1);
     const rankDelta =
@@ -398,51 +747,78 @@ export function analyzeQualification(input: {
       partnerStrength === null && opponentStrength === null
         ? null
         : clamp((partnerStrength ?? 0) - (opponentStrength ?? 0), -1, 1);
+    const foulReliance = foulRelianceValues.get(team.key) ?? null;
+    const foulPenalty =
+      foulReliance === null ? 0 : clamp(foulReliance / 0.24, 0, 1);
     const inflationRisk = clamp(
-      ((rankingSignal ?? 0) - (adjustedPerformance ?? 0)) * 0.62 +
-        Math.max(0, scheduleAdvantage ?? 0) * 0.44 +
-        ((winRateSignal ?? 0) - (adjustedPerformance ?? 0)) * 0.18,
+      ((rankingSignal ?? 0) - (adjustedPerformance ?? 0)) * 0.56 +
+        Math.max(0, scheduleAdvantage ?? 0) * 0.4 +
+        ((winRateSignal ?? 0) - (adjustedPerformance ?? 0)) * 0.16 +
+        foulPenalty * 0.12,
       -1,
       1,
     );
     const underseedSignal =
       rankDelta === null
         ? scheduleDifficulty
-        : clamp(rankDelta + Math.max(scheduleDifficulty ?? 0, 0) * 0.22, -1, 1);
+        : clamp(rankDelta + Math.max(scheduleDifficulty ?? 0, 0) * 0.24, -1, 1);
     const rankTrust =
       rankingSignal === null
         ? 0
         : clamp(
-            1 - Math.max(0, inflationRisk) * 0.78 - Math.abs(rankDelta ?? 0) * 0.16,
+            1 - Math.max(0, inflationRisk) * 0.74 - Math.abs(rankDelta ?? 0) * 0.15,
             0.14,
             1,
           );
+    const rankingTiebreaker = normalizedTiebreakers.get(team.key) ?? null;
+    const districtPointSignal = normalizedDistrictPoints.get(team.key) ?? null;
 
     const rawSignal = clamp(
-      (adjustedPerformance ?? 0) * 0.42 +
-        (winRateSignal ?? 0) * 0.15 +
-        (scorePotential ?? 0) * 0.12 +
-        (trend ?? 0) * 0.1 +
-        (consistency ?? 0) * 0.08 +
-        (scheduleDifficulty ?? 0) * 0.07 +
-        (rankingSignal ?? 0) * 0.06 * rankTrust +
-        (underseedSignal ?? 0) * 0.06 -
-        Math.max(0, inflationRisk) * 0.08,
-      -1.4,
-      1.4,
+      (adjustedPerformance ?? 0) * 0.28 +
+        (winRateSignal ?? 0) * 0.11 +
+        (scorePotential ?? 0) * 0.1 +
+        (cleanScoring ?? 0) * 0.08 +
+        (scoringCeiling ?? 0) * 0.05 +
+        (scoringFloor ?? 0) * 0.06 +
+        (autonomousImpact ?? 0) * 0.05 +
+        (endgameImpact ?? 0) * 0.05 +
+        (trend ?? 0) * 0.07 +
+        (consistency ?? 0) * 0.07 +
+        (scheduleDifficulty ?? 0) * 0.06 +
+        (rankingSignal ?? 0) * 0.04 * rankTrust +
+        (rankingTiebreaker ?? 0) * 0.02 * rankTrust +
+        (underseedSignal ?? 0) * 0.05 +
+        (districtPointSignal ?? 0) * 0.02 -
+        Math.max(0, inflationRisk) * 0.08 -
+        foulPenalty * 0.05,
+      -1.5,
+      1.5,
     );
 
     rawSignals.set(team.key, rawSignal);
 
-    const matchesPlayed = Math.max(aggregate.playedMatches, ranking?.matches_played ?? 0);
-    const rankingCoverage = ranking ? Math.min(ranking.matches_played / 10, 1) : 0;
+    const rankingCoverage =
+      rankValue !== null ? Math.min(matchesPlayed / 10, 1) * 0.92 : 0;
     const matchCoverage = Math.min(matchesPlayed / 10, 1);
-    const modelCoverage = input.oprs ? 0.12 : 0;
+    const modelCoverage = input.oprs ? 0.1 : 0;
+    const coprCoverage = input.coprs ? 0.08 : 0;
+    const breakdownCoverage =
+      aggregate.appearances.some((appearance) => appearance.breakdown.cleanScore !== null)
+        ? 0.08
+        : 0;
+    const statusCoverage = status ? 0.04 : 0;
+    const insightCoverage = input.insights ? 0.02 : 0;
+    const districtCoverage = districtPointSignal !== null ? 0.02 : 0;
     const baseConfidence = clamp(
-      matchCoverage * 0.62 +
-        rankingCoverage * 0.2 +
+      matchCoverage * 0.5 +
+        rankingCoverage * 0.16 +
         modelCoverage +
-        Math.min(aggregate.appearances.length / 6, 1) * 0.06,
+        coprCoverage +
+        breakdownCoverage +
+        statusCoverage +
+        insightCoverage +
+        districtCoverage +
+        Math.min(aggregate.appearances.length / 6, 1) * 0.04,
       0,
       1,
     );
@@ -451,8 +827,8 @@ export function analyzeQualification(input: {
       rawSignal,
       matchesPlayed,
       record,
-      ranking: toRankingSnapshot(ranking),
-      rankPercentile: getRankPercentile(ranking, rankingCount),
+      ranking: toRankingSnapshot(rankValue, matchesPlayed),
+      rankPercentile: getRankPercentileFromRank(rankValue, rankingUniverse),
       winRate,
       trend,
       scheduleDifficulty,
@@ -460,6 +836,15 @@ export function analyzeQualification(input: {
       opponentStrength,
       adjustedPerformance,
       scorePotential,
+      cleanScoring,
+      scoringCeiling,
+      scoringFloor,
+      foulReliance,
+      autonomousImpact,
+      endgameImpact,
+      districtPointTotal:
+        input.districtPoints?.points?.[team.key]?.total ?? null,
+      rankingTiebreaker,
       consistency,
       rankDelta,
       inflationRisk,
@@ -467,13 +852,14 @@ export function analyzeQualification(input: {
     });
   }
 
-  const normalizedSignals = normalizeDistribution(rawSignals, 1.15);
+  const normalizedSignals = normalizeDistribution(rawSignals, 1.12);
   const results = new Map<string, QualificationMetrics>();
 
   for (const team of teams) {
     const metrics = metricsByTeam.get(team.key)!;
     const confidence = metrics.baseConfidence;
-    const normalizedSignal = normalizedSignals.get(team.key) ?? metrics.adjustedPerformance ?? 0;
+    const normalizedSignal =
+      normalizedSignals.get(team.key) ?? metrics.adjustedPerformance ?? 0;
     const dampedSignal = normalizedSignal * (0.35 + confidence * 0.65);
     const score = roundTo(clamp(dampedSignal * 10, -10, 10), 1);
 

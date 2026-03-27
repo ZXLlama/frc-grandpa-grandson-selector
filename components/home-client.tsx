@@ -89,10 +89,15 @@ function isAnalysisTab(tab: DashboardTab): tab is AnalysisTab {
 }
 
 const YEAR_OPTIONS = buildYearOptions();
+const REPO_URL = "https://github.com/ZXLlama/frc-grandpa-grandson-selector";
 
 export function HomeClient() {
   const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE);
   const dictionary = getDictionary(locale);
+  const heroSubtitle =
+    locale === "zh-TW"
+      ? "用 The Blue Alliance 即時資料快速了解爸爸去哪兒"
+      : "Use live The Blue Alliance data to quickly see where the dads are.";
   const [year, setYear] = useState(DEFAULT_FRC_YEAR);
   const [events, setEvents] = useState<EventOption[]>([]);
   const [districtFilter, setDistrictFilter] = useState("all");
@@ -396,22 +401,14 @@ export function HomeClient() {
       <section className={styles.hero}>
         <div className={styles.heroTop}>
           <div className={styles.heroCopy}>
-            <div className={styles.kicker}>FRC Event Strength Snapshot</div>
             <h1 className={styles.title}>{dictionary.appTitle}</h1>
-            <p className={styles.subtitle}>{dictionary.appSubtitle}</p>
+            <p className={styles.subtitle}>{heroSubtitle}</p>
           </div>
           <LanguageToggle
             locale={locale}
             dictionary={dictionary}
             onChange={setLocale}
           />
-        </div>
-
-        <div className={styles.heroStrip}>
-          <div>
-            <div className={styles.stripLabel}>{dictionary.controlsTitle}</div>
-            <div className={styles.stripText}>{dictionary.modelHint}</div>
-          </div>
         </div>
       </section>
 
@@ -569,6 +566,27 @@ export function HomeClient() {
           <div className={styles.messageCard}>{dictionary.emptyBody}</div>
         )}
       </section>
+
+      <footer className={styles.footer}>
+        <a
+          className={styles.footerLink}
+          href={REPO_URL}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="GitHub repository"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            className={styles.githubIcon}
+          >
+            <path
+              fill="currentColor"
+              d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56 0-.28-.01-1.19-.02-2.16-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.71.08-.71 1.16.08 1.78 1.19 1.78 1.19 1.03 1.76 2.7 1.25 3.36.95.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.17a10.9 10.9 0 0 1 5.74 0c2.19-1.48 3.15-1.17 3.15-1.17.62 1.58.23 2.75.11 3.04.73.8 1.18 1.82 1.18 3.07 0 4.42-2.69 5.38-5.26 5.67.41.35.77 1.03.77 2.08 0 1.5-.01 2.7-.01 3.07 0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"
+            />
+          </svg>
+        </a>
+      </footer>
     </main>
   );
 }

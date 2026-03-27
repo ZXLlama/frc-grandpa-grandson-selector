@@ -6,10 +6,14 @@ import {
   getEventAlliances,
   getEventAwards,
   getEventByKey,
+  getEventCoprs,
+  getEventDistrictPoints,
+  getEventInsights,
   getEventMatches,
   getEventOprs,
   getEventRankings,
   getEventTeams,
+  getEventTeamStatuses,
   isTbaError,
 } from "@/lib/server/tba";
 
@@ -43,6 +47,10 @@ export async function GET(
       awardsResult,
       alliancesResult,
       oprsResult,
+      coprsResult,
+      insightsResult,
+      teamStatusesResult,
+      districtPointsResult,
     ] =
       await Promise.allSettled([
         getEventByKey(eventKey),
@@ -52,6 +60,10 @@ export async function GET(
         getEventAwards(eventKey),
         getEventAlliances(eventKey),
         getEventOprs(eventKey),
+        getEventCoprs(eventKey),
+        getEventInsights(eventKey),
+        getEventTeamStatuses(eventKey),
+        getEventDistrictPoints(eventKey),
       ]);
 
     if (eventResult.status === "rejected") {
@@ -70,6 +82,14 @@ export async function GET(
       awards: awardsResult.status === "fulfilled" ? awardsResult.value : [],
       alliances: alliancesResult.status === "fulfilled" ? alliancesResult.value : null,
       oprs: oprsResult.status === "fulfilled" ? oprsResult.value : null,
+      coprs: coprsResult.status === "fulfilled" ? coprsResult.value : null,
+      insights: insightsResult.status === "fulfilled" ? insightsResult.value : null,
+      teamStatuses:
+        teamStatusesResult.status === "fulfilled" ? teamStatusesResult.value : null,
+      districtPoints:
+        districtPointsResult.status === "fulfilled"
+          ? districtPointsResult.value
+          : null,
     });
 
     return NextResponse.json(payload, {

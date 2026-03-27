@@ -23,8 +23,6 @@
 
 .hero {
   padding: 1.25rem;
-  display: grid;
-  gap: 1.25rem;
 }
 
 .heroTop {
@@ -38,14 +36,6 @@
   gap: 0.7rem;
 }
 
-.kicker {
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #84ff66;
-}
-
 .title {
   font-family: var(--font-display), sans-serif;
   font-size: clamp(2.1rem, 7vw, 4rem);
@@ -57,28 +47,6 @@
   max-width: 48rem;
   font-size: 0.98rem;
   line-height: 1.75;
-  color: var(--text-muted);
-}
-
-.heroStrip {
-  padding: 1rem 1.05rem;
-  border: 1px solid rgba(132, 255, 102, 0.11);
-  border-radius: 1.2rem;
-  background: rgba(7, 18, 27, 0.7);
-}
-
-.stripLabel {
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-
-.stripText {
-  margin-top: 0.45rem;
-  font-size: 0.93rem;
-  line-height: 1.65;
   color: var(--text-muted);
 }
 
@@ -203,6 +171,7 @@
 .summaryDeck {
   display: grid;
   gap: 0.9rem;
+  align-items: start;
 }
 
 .toolbarGrid {
@@ -270,13 +239,38 @@
 }
 
 .footer {
-  padding-inline: 0.35rem;
-  font-size: 0.86rem;
-  color: var(--text-dim);
+  display: flex;
+  justify-content: center;
+  padding-top: 0.15rem;
 }
 
-.footer a:hover {
+.footerLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: var(--text-dim);
+  background: rgba(8, 14, 22, 0.88);
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease,
+    background 160ms ease;
+}
+
+.footerLink:hover {
   color: var(--text);
+  border-color: rgba(119, 217, 255, 0.24);
+  background: rgba(14, 24, 36, 0.96);
+  transform: translateY(-1px);
+}
+
+.githubIcon {
+  width: 1.35rem;
+  height: 1.35rem;
 }
 
 @keyframes shimmer {
@@ -321,7 +315,7 @@
   }
 
   .summaryDeck {
-    grid-template-columns: minmax(0, 1.1fr) minmax(20rem, 0.9fr);
+    grid-template-columns: minmax(0, 1.18fr) minmax(20rem, 0.82fr);
   }
 
   .grid {

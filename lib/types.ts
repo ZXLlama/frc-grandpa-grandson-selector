@@ -92,6 +92,14 @@ export interface QualificationSnapshot {
   opponentStrength: number | null;
   adjustedPerformance: number | null;
   scorePotential: number | null;
+  cleanScoring: number | null;
+  scoringCeiling: number | null;
+  scoringFloor: number | null;
+  foulReliance: number | null;
+  autonomousImpact: number | null;
+  endgameImpact: number | null;
+  districtPointTotal: number | null;
+  rankingTiebreaker: number | null;
   consistency: number | null;
   rankDelta: number | null;
   inflationRisk: number | null;

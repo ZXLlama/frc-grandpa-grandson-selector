@@ -12,11 +12,15 @@ import type {
 import type {
   TbaAlliance,
   TbaAward,
+  TbaCoprs,
+  TbaDistrictPoints,
   TbaEventSimple,
+  TbaEventInsights,
   TbaMatchSimple,
   TbaOprs,
   TbaRankings,
   TbaTeamSimple,
+  TbaEventTeamStatuses,
 } from "@/lib/server/tba";
 import { buildAwardsSummary, getEventFinishedState } from "@/lib/scoring/awards";
 import { classifyEventStrength } from "@/lib/scoring/event-strength";
@@ -46,6 +50,14 @@ function createEmptyQualification(): QualificationSnapshot {
     opponentStrength: null,
     adjustedPerformance: null,
     scorePotential: null,
+    cleanScoring: null,
+    scoringCeiling: null,
+    scoringFloor: null,
+    foulReliance: null,
+    autonomousImpact: null,
+    endgameImpact: null,
+    districtPointTotal: null,
+    rankingTiebreaker: null,
     consistency: null,
     rankDelta: null,
     inflationRisk: null,
@@ -60,6 +72,10 @@ export function computeEventScores(input: {
   awards: TbaAward[];
   alliances: TbaAlliance[] | null;
   oprs: TbaOprs | null;
+  coprs: TbaCoprs | null;
+  insights: TbaEventInsights | null;
+  teamStatuses: TbaEventTeamStatuses | null;
+  districtPoints: TbaDistrictPoints | null;
 }): EventScoresResponse {
   const isPlayoffOnlyEvent = input.event.event_type === 4;
   const teams = [...input.teams].sort(
@@ -71,6 +87,10 @@ export function computeEventScores(input: {
     rankings: input.rankings,
     matches: input.matches,
     oprs: input.oprs,
+    coprs: input.coprs,
+    insights: input.insights,
+    teamStatuses: input.teamStatuses,
+    districtPoints: input.districtPoints,
   });
   const playoffs = analyzePlayoffs({
     teams,

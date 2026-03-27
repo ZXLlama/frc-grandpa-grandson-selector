@@ -119,6 +119,11 @@ const matchSimpleSchema = z
     time: z.number().int().nullable().optional(),
     predicted_time: z.number().int().nullable().optional(),
     actual_time: z.number().int().nullable().optional(),
+    post_result_time: z.number().int().nullable().optional(),
+    score_breakdown: z
+      .record(z.string(), z.unknown())
+      .nullable()
+      .optional(),
   })
   .passthrough();
 
@@ -177,6 +182,41 @@ const oprsSchema = z
   .passthrough()
   .nullable();
 
+const coprsSchema = z
+  .record(z.string(), z.record(z.string(), z.number()).default({}))
+  .nullable();
+
+const eventInsightsSchema = z
+  .object({
+    qual: z.record(z.string(), z.unknown()).nullable().optional(),
+    playoff: z.record(z.string(), z.unknown()).nullable().optional(),
+  })
+  .passthrough()
+  .nullable();
+
+const teamEventStatusSchema = z.object({}).passthrough().nullable();
+
+const eventTeamStatusesSchema = z
+  .record(z.string(), teamEventStatusSchema)
+  .nullable();
+
+const districtPointEntrySchema = z
+  .object({
+    total: z.number().int(),
+    alliance_points: z.number().int(),
+    award_points: z.number().int(),
+    elim_points: z.number().int(),
+    qual_points: z.number().int(),
+  })
+  .passthrough();
+
+const districtPointsSchema = z
+  .object({
+    points: z.record(z.string(), districtPointEntrySchema).default({}),
+  })
+  .passthrough()
+  .nullable();
+
 export type TbaEventSimple = z.infer<typeof eventSimpleSchema>;
 export type TbaTeamSimple = z.infer<typeof teamSimpleSchema>;
 export type TbaRankings = z.infer<typeof rankingsSchema>;
@@ -185,6 +225,11 @@ export type TbaMatchSimple = z.infer<typeof matchSimpleSchema>;
 export type TbaAward = z.infer<typeof awardSchema>;
 export type TbaAlliance = z.infer<typeof allianceSchema>;
 export type TbaOprs = z.infer<typeof oprsSchema>;
+export type TbaCoprs = z.infer<typeof coprsSchema>;
+export type TbaEventInsights = z.infer<typeof eventInsightsSchema>;
+export type TbaTeamEventStatus = z.infer<typeof teamEventStatusSchema>;
+export type TbaEventTeamStatuses = z.infer<typeof eventTeamStatusesSchema>;
+export type TbaDistrictPoints = z.infer<typeof districtPointsSchema>;
 
 export class TbaError extends Error {
   constructor(
@@ -359,7 +404,7 @@ export async function getEventMatches(
   eventKey: string,
 ): Promise<TbaMatchSimple[]> {
   return fetchTbaJson(
-    `/event/${eventKey}/matches/simple`,
+    `/event/${eventKey}/matches`,
     z.array(matchSimpleSchema),
     30_000,
   );
@@ -389,4 +434,40 @@ export async function getEventOprs(
   eventKey: string,
 ): Promise<TbaOprs> {
   return fetchTbaJson(`/event/${eventKey}/oprs`, oprsSchema, 45_000);
+}
+
+export async function getEventCoprs(
+  eventKey: string,
+): Promise<TbaCoprs> {
+  return fetchTbaJson(`/event/${eventKey}/coprs`, coprsSchema, 45_000);
+}
+
+export async function getEventInsights(
+  eventKey: string,
+): Promise<TbaEventInsights> {
+  return fetchTbaJson(
+    `/event/${eventKey}/insights`,
+    eventInsightsSchema,
+    60_000,
+  );
+}
+
+export async function getEventTeamStatuses(
+  eventKey: string,
+): Promise<TbaEventTeamStatuses> {
+  return fetchTbaJson(
+    `/event/${eventKey}/teams/statuses`,
+    eventTeamStatusesSchema,
+    45_000,
+  );
+}
+
+export async function getEventDistrictPoints(
+  eventKey: string,
+): Promise<TbaDistrictPoints> {
+  return fetchTbaJson(
+    `/event/${eventKey}/district_points`,
+    districtPointsSchema,
+    90_000,
+  );
 }
