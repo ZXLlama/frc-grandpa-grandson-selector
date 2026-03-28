@@ -7,6 +7,7 @@ import {
   DEFAULT_REFERENCE_TEAM_KEY,
   DEFAULT_SORT_DIRECTION,
   DEFAULT_SORT_KEY,
+  LAST_EVENT_QUERY_STORAGE_KEY,
   MIN_FRC_YEAR,
   PINNED_TEAM_STORAGE_KEY,
   clamp,
@@ -46,6 +47,13 @@ import { ReferenceTeamSelector } from "@/components/reference-team-selector";
 import { TeamScoreCard } from "@/components/team-score-card";
 import { TeamSortControls } from "@/components/team-sort-controls";
 import styles from "@/components/home-client.module.css";
+
+type StoredLastEventQuery = {
+  year: number;
+  districtFilter: string;
+  competitionFilter: string;
+  eventKey: string;
+};
 
 function getErrorMessage(data: unknown): string | null {
   if (!data || typeof data !== "object") {
@@ -88,21 +96,77 @@ function isAnalysisTab(tab: DashboardTab): tab is AnalysisTab {
   return tab === "qualification" || tab === "playoff";
 }
 
+function isStoredLastEventQuery(value: unknown): value is StoredLastEventQuery {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<StoredLastEventQuery>;
+  return (
+    typeof candidate.year === "number" &&
+    Number.isFinite(candidate.year) &&
+    typeof candidate.districtFilter === "string" &&
+    typeof candidate.competitionFilter === "string" &&
+    typeof candidate.eventKey === "string" &&
+    candidate.eventKey.length > 0
+  );
+}
+
+function readStoredLastEventQuery(): StoredLastEventQuery | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(LAST_EVENT_QUERY_STORAGE_KEY);
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as unknown;
+    return isStoredLastEventQuery(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistLastEventQuery(query: StoredLastEventQuery) {
+  try {
+    window.localStorage.setItem(
+      LAST_EVENT_QUERY_STORAGE_KEY,
+      JSON.stringify(query),
+    );
+  } catch {
+    // Ignore storage failures and keep the app usable.
+  }
+}
+
 const YEAR_OPTIONS = buildYearOptions();
 const REPO_URL = "https://github.com/ZXLlama/frc-grandpa-grandson-selector";
 
 export function HomeClient() {
+  const initialStoredQuery = readStoredLastEventQuery();
   const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE);
   const dictionary = getDictionary(locale);
   const heroSubtitle =
     locale === "zh-TW"
       ? "用 The Blue Alliance 即時資料快速了解爸爸去哪兒"
       : "Use live The Blue Alliance data to quickly see where the dads are.";
-  const [year, setYear] = useState(DEFAULT_FRC_YEAR);
+  const [year, setYear] = useState(initialStoredQuery?.year ?? DEFAULT_FRC_YEAR);
   const [events, setEvents] = useState<EventOption[]>([]);
-  const [districtFilter, setDistrictFilter] = useState("all");
-  const [competitionFilter, setCompetitionFilter] = useState("all");
-  const [selectedEventKey, setSelectedEventKey] = useState("");
+  const [districtFilter, setDistrictFilter] = useState(
+    initialStoredQuery?.districtFilter ?? "all",
+  );
+  const [competitionFilter, setCompetitionFilter] = useState(
+    initialStoredQuery?.competitionFilter ?? "all",
+  );
+  const [selectedEventKey, setSelectedEventKey] = useState(
+    initialStoredQuery?.eventKey ?? "",
+  );
+  const [pendingAutoLoadEventKey, setPendingAutoLoadEventKey] = useState<string | null>(
+    initialStoredQuery?.eventKey ?? null,
+  );
   const [referenceTeamKey, setReferenceTeamKey] = useState(
     DEFAULT_REFERENCE_TEAM_KEY,
   );
@@ -162,6 +226,7 @@ export function HomeClient() {
 
         setEvents([]);
         setSelectedEventKey("");
+        setPendingAutoLoadEventKey(null);
         setEventsError(
           error instanceof Error ? error.message : dictionary.eventLoadFailed,
         );
@@ -341,21 +406,26 @@ export function HomeClient() {
           currentAnalysisTab,
         );
 
-  async function handleAnalyze() {
-    if (!selectedEventKey) {
-      return;
-    }
-
+  async function runAnalysis(eventKey: string, persistQuery = true) {
     setIsAnalyzing(true);
     setScoresError(null);
     setReferenceTeamKey(DEFAULT_REFERENCE_TEAM_KEY);
 
     try {
       const payload = await fetchJson<EventScoresResponse>(
-        `/api/event/${selectedEventKey}/scores`,
+        `/api/event/${eventKey}/scores`,
       );
 
       setScores(payload);
+
+      if (persistQuery) {
+        persistLastEventQuery({
+          year,
+          districtFilter,
+          competitionFilter,
+          eventKey,
+        });
+      }
     } catch (error) {
       setScores(null);
       setScoresError(
@@ -366,6 +436,67 @@ export function HomeClient() {
     }
   }
 
+  useEffect(() => {
+    if (!pendingAutoLoadEventKey) {
+      return;
+    }
+
+    if (isLoadingEvents || isAnalyzing || eventsError) {
+      return;
+    }
+
+    const storedEventStillExists = events.some(
+      (event) => event.key === pendingAutoLoadEventKey,
+    );
+
+    if (!storedEventStillExists) {
+      setPendingAutoLoadEventKey(null);
+      return;
+    }
+
+    if (selectedEventKey !== pendingAutoLoadEventKey) {
+      return;
+    }
+
+    setPendingAutoLoadEventKey(null);
+    setIsAnalyzing(true);
+    setScoresError(null);
+    setReferenceTeamKey(DEFAULT_REFERENCE_TEAM_KEY);
+
+    void fetchJson<EventScoresResponse>(
+      `/api/event/${pendingAutoLoadEventKey}/scores`,
+    )
+      .then((payload) => {
+        setScores(payload);
+      })
+      .catch((error) => {
+        setScores(null);
+        setScoresError(
+          error instanceof Error ? error.message : dictionary.scoreLoadFailed,
+        );
+      })
+      .finally(() => {
+        setIsAnalyzing(false);
+      });
+  }, [
+    pendingAutoLoadEventKey,
+    isLoadingEvents,
+    isAnalyzing,
+    eventsError,
+    events,
+    selectedEventKey,
+    dictionary.scoreLoadFailed,
+  ]);
+
+  function handleAnalyze() {
+    if (!selectedEventKey) {
+      return;
+    }
+
+    setPendingAutoLoadEventKey(null);
+    void runAnalysis(selectedEventKey);
+  }
+
   function resetDerivedState() {
     setScores(null);
     setScoresError(null);
@@ -374,6 +505,7 @@ export function HomeClient() {
   }
 
   function handleYearChange(nextYear: number) {
+    setPendingAutoLoadEventKey(null);
     setYear(nextYear);
     setDistrictFilter("all");
     setCompetitionFilter("all");
@@ -382,16 +514,19 @@ export function HomeClient() {
   }
 
   function handleDistrictChange(value: string) {
+    setPendingAutoLoadEventKey(null);
     setDistrictFilter(value);
     resetDerivedState();
   }
 
   function handleCompetitionChange(value: string) {
+    setPendingAutoLoadEventKey(null);
     setCompetitionFilter(value);
     resetDerivedState();
   }
 
   function handleEventChange(eventKey: string) {
+    setPendingAutoLoadEventKey(null);
     setSelectedEventKey(eventKey);
     resetDerivedState();
   }
@@ -473,7 +608,6 @@ export function HomeClient() {
         {scores ? (
           <div className={styles.summaryDeck}>
             <EventFieldStrength event={scores.event} locale={locale} />
-
             <EventProgress event={scores.event} locale={locale} />
           </div>
         ) : null}

@@ -11,6 +11,8 @@ export const DEFAULT_FRC_YEAR = new Date().getFullYear();
 export const DEFAULT_REFERENCE_TEAM_KEY = "";
 export const PINNED_TEAM_STORAGE_KEY =
   "frc-grandpa-grandson-selector:pinned-team";
+export const LAST_EVENT_QUERY_STORAGE_KEY =
+  "frc-grandpa-grandson-selector:last-event-query";
 export const DEFAULT_SORT_KEY: TeamSortKey = "score";
 export const DEFAULT_SORT_DIRECTION: SortDirection = "desc";
 
