@@ -162,6 +162,7 @@ export function HomeClient() {
     null,
   );
   const [hasRestoredStoredQuery, setHasRestoredStoredQuery] = useState(false);
+  const [hasResolvedEventsRequest, setHasResolvedEventsRequest] = useState(false);
   const [referenceTeamKey, setReferenceTeamKey] = useState(
     DEFAULT_REFERENCE_TEAM_KEY,
   );
@@ -220,6 +221,7 @@ export function HomeClient() {
     }
 
     const controller = new AbortController();
+    setHasResolvedEventsRequest(false);
 
     async function loadEvents() {
       setIsLoadingEvents(true);
@@ -246,6 +248,7 @@ export function HomeClient() {
       } finally {
         if (!controller.signal.aborted) {
           setIsLoadingEvents(false);
+          setHasResolvedEventsRequest(true);
         }
       }
     }
@@ -292,7 +295,11 @@ export function HomeClient() {
   });
 
   useEffect(() => {
-    if (!hasRestoredStoredQuery || isLoadingEvents) {
+    if (
+      !hasRestoredStoredQuery ||
+      !hasResolvedEventsRequest ||
+      isLoadingEvents
+    ) {
       return;
     }
 
@@ -321,6 +328,7 @@ export function HomeClient() {
   }, [
     filteredEvents,
     hasRestoredStoredQuery,
+    hasResolvedEventsRequest,
     isLoadingEvents,
     pendingAutoLoadEventKey,
     selectedEventKey,
@@ -474,7 +482,7 @@ export function HomeClient() {
   }
 
   useEffect(() => {
-    if (!hasRestoredStoredQuery) {
+    if (!hasRestoredStoredQuery || !hasResolvedEventsRequest) {
       return;
     }
 
@@ -528,6 +536,7 @@ export function HomeClient() {
     selectedEventKey,
     dictionary.scoreLoadFailed,
     hasRestoredStoredQuery,
+    hasResolvedEventsRequest,
   ]);
 
   function handleAnalyze() {
