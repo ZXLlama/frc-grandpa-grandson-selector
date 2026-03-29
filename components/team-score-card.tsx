@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { memo, useState, type CSSProperties } from "react";
 
 import { getDictionary } from "@/lib/i18n";
 import { buildTeamInsights } from "@/lib/insights";
@@ -32,7 +32,7 @@ type TeamScoreCardProps = {
   isEventFinished: boolean;
 };
 
-export function TeamScoreCard({
+function TeamScoreCardComponent({
   team,
   locale,
   analysisTab,
@@ -47,7 +47,6 @@ export function TeamScoreCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const dictionary = getDictionary(locale);
   const theme = getCategoryTheme(displayedCategory);
-  const insights = buildTeamInsights(team, locale, analysisTab, isEventFinished);
   const rankingScoreLabel = locale === "zh-TW" ? "排名分" : "Ranking Score";
   const totalRankingPointsLabel =
     locale === "zh-TW" ? "總排名分" : "Total Ranking Points";
@@ -209,32 +208,38 @@ export function TeamScoreCard({
       <div
         className={`${styles.detailsShell} ${isExpanded ? styles.detailsShellExpanded : ""}`.trim()}
       >
-        <div className={styles.detailsInner}>
-          <div className={styles.detailsHeader}>
-            <div className={styles.detailsTitle}>{dictionary.scoutingNotesLabel}</div>
-            <div className={styles.detailsConfidence}>
-              {dictionary.confidenceLabel} {formatConfidence(currentConfidence)}
+        {isExpanded ? (
+          <div className={styles.detailsInner}>
+            <div className={styles.detailsHeader}>
+              <div className={styles.detailsTitle}>{dictionary.scoutingNotesLabel}</div>
+              <div className={styles.detailsConfidence}>
+                {dictionary.confidenceLabel} {formatConfidence(currentConfidence)}
+              </div>
             </div>
+
+            <div className={styles.detailsMeta}>{detailMeta}</div>
+
+            <ol className={styles.analysisList}>
+              {buildTeamInsights(team, locale, analysisTab, isEventFinished).map(
+                (insight, index) => (
+                  <li
+                    key={`${team.teamKey}-${analysisTab}-${index}`}
+                    className={styles.analysisItem}
+                  >
+                    {insight}
+                  </li>
+                ),
+              )}
+            </ol>
+
+            {analysisTab === "playoff" ? (
+              <div className={styles.detailsFoot}>{dictionary.playoffAllianceNote}</div>
+            ) : null}
           </div>
-
-          <div className={styles.detailsMeta}>{detailMeta}</div>
-
-          <ol className={styles.analysisList}>
-            {insights.map((insight, index) => (
-              <li
-                key={`${team.teamKey}-${analysisTab}-${index}`}
-                className={styles.analysisItem}
-              >
-                {insight}
-              </li>
-            ))}
-          </ol>
-
-          {analysisTab === "playoff" ? (
-            <div className={styles.detailsFoot}>{dictionary.playoffAllianceNote}</div>
-          ) : null}
-        </div>
+        ) : null}
       </div>
     </article>
   );
 }
+
+export const TeamScoreCard = memo(TeamScoreCardComponent);

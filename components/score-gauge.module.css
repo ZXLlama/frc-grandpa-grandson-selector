@@ -61,3 +61,9 @@
 .scale span:last-child {
   text-align: right;
 }
+
+@media (max-width: 540px) {
+  .svg {
+    filter: drop-shadow(0 8px 14px var(--glow));
+  }
+}

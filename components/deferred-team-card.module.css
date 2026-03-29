@@ -1,0 +1,76 @@
+.shell {
+  container-type: inline-size;
+  min-height: 29rem;
+  content-visibility: auto;
+  contain: layout paint style;
+  contain-intrinsic-size: 29rem;
+}
+
+.shell[data-mounted="true"] {
+  min-height: 0;
+  contain-intrinsic-size: auto;
+}
+
+.placeholder {
+  min-height: 29rem;
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(119, 217, 255, 0.08);
+  border-radius: 1.6rem;
+  background: linear-gradient(180deg, rgba(12, 21, 32, 0.9), rgba(7, 13, 22, 0.9));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+.placeholderNumber,
+.placeholderName,
+.placeholderGauge,
+.placeholderPanel {
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.placeholderNumber {
+  width: min(8.5rem, 55%);
+  height: 3.9rem;
+}
+
+.placeholderName {
+  width: 72%;
+  height: 1.2rem;
+}
+
+.placeholderBody {
+  display: grid;
+  gap: 1rem;
+}
+
+.placeholderGauge {
+  justify-self: center;
+  width: min(100%, 10rem);
+  aspect-ratio: 1 / 0.74;
+  border-radius: 50% 50% 1rem 1rem;
+}
+
+.placeholderPanel {
+  min-height: 14rem;
+}
+
+@container (min-width: 34rem) {
+  .placeholderBody {
+    grid-template-columns: minmax(0, 10rem) minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .placeholderPanel {
+    min-height: 12.6rem;
+  }
+}
+
+@media (max-width: 759px) {
+  .placeholder {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
+  }
+}

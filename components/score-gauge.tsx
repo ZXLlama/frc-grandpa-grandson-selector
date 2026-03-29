@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { memo, type CSSProperties } from "react";
 
 import {
   formatSignedScore,
@@ -16,7 +16,7 @@ type ScoreGaugeProps = {
   category: ScoreCategory;
 };
 
-export function ScoreGauge({ score, category }: ScoreGaugeProps) {
+function ScoreGaugeComponent({ score, category }: ScoreGaugeProps) {
   const fill = getGaugeFill(score);
   const theme = getCategoryTheme(category);
   const angleDegrees = 180 + fill * 1.8;
@@ -61,3 +61,5 @@ export function ScoreGauge({ score, category }: ScoreGaugeProps) {
     </div>
   );
 }
+
+export const ScoreGauge = memo(ScoreGaugeComponent);

@@ -327,6 +327,27 @@
   height: 1.35rem;
 }
 
+@media (max-width: 759px) {
+  .hero,
+  .panel,
+  .resultsSection {
+    background: linear-gradient(180deg, rgba(11, 19, 29, 0.95), rgba(6, 12, 20, 0.94));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.03),
+      0 18px 38px rgba(0, 0, 0, 0.24);
+  }
+
+  .fieldCard {
+    background: rgba(6, 16, 25, 0.78);
+  }
+
+  .eventLink {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 8px 18px rgba(11, 25, 39, 0.2);
+  }
+}
+
 @keyframes shimmer {
   0% {
     background-position: 200% 0;
@@ -334,6 +355,17 @@
 
   100% {
     background-position: -20% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eventLink,
+  .footerLink {
+    transition: none;
+  }
+
+  .skeletonCard {
+    animation: none;
   }
 }
 

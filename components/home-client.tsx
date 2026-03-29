@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import {
   DEFAULT_FRC_YEAR,
@@ -38,13 +38,13 @@ import type {
 
 import { AnalysisTabs } from "@/components/analysis-tabs";
 import { AwardsPanel } from "@/components/awards-panel";
+import { DeferredTeamCard } from "@/components/deferred-team-card";
 import { EventFieldStrength } from "@/components/event-field-strength";
 import { EventProgress } from "@/components/event-progress";
 import { EventSelector } from "@/components/event-selector";
 import { LanguageToggle } from "@/components/language-toggle";
 import { PinnedTeamSelector } from "@/components/pinned-team-selector";
 import { ReferenceTeamSelector } from "@/components/reference-team-selector";
-import { TeamScoreCard } from "@/components/team-score-card";
 import { TeamSortControls } from "@/components/team-sort-controls";
 import styles from "@/components/home-client.module.css";
 
@@ -177,7 +177,6 @@ export function HomeClient() {
   const [scores, setScores] = useState<EventScoresResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [scoresError, setScoresError] = useState<string | null>(null);
-
   useEffect(() => {
     const storedQuery = readStoredLastEventQuery();
 
@@ -450,6 +449,7 @@ export function HomeClient() {
           sortDirection,
           currentAnalysisTab,
         );
+  const deferredDisplayedTeams = useDeferredValue(displayedTeams);
 
   async function runAnalysis(eventKey: string, persistQuery = true) {
     setIsAnalyzing(true);
@@ -742,14 +742,9 @@ export function HomeClient() {
             </div>
           ) : displayedTeams.length ? (
             <div className={styles.grid}>
-              {displayedTeams.map(
-                ({
-                  team,
-                  displayedScore,
-                  displayedCategory,
-                  isReference,
-                }) => (
-                  <TeamScoreCard
+              {deferredDisplayedTeams.map(
+                ({ team, displayedScore, displayedCategory, isReference }) => (
+                  <DeferredTeamCard
                     key={`${activeTab}-${team.teamKey}`}
                     team={team}
                     locale={locale}
