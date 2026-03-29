@@ -146,7 +146,6 @@ const YEAR_OPTIONS = buildYearOptions();
 const REPO_URL = "https://github.com/ZXLlama/frc-grandpa-grandson-selector";
 
 export function HomeClient() {
-  const initialStoredQuery = readStoredLastEventQuery();
   const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE);
   const dictionary = getDictionary(locale);
   const heroSubtitle =
@@ -154,20 +153,15 @@ export function HomeClient() {
       ? "用 The Blue Alliance 即時資料快速了解爸爸去哪兒"
       : "Use live The Blue Alliance data to quickly see where the dads are.";
   const tbaEventLabel = locale === "zh-TW" ? "開啟 TBA 頁面" : "Open in TBA";
-  const [year, setYear] = useState(initialStoredQuery?.year ?? DEFAULT_FRC_YEAR);
+  const [year, setYear] = useState(DEFAULT_FRC_YEAR);
   const [events, setEvents] = useState<EventOption[]>([]);
-  const [districtFilter, setDistrictFilter] = useState(
-    initialStoredQuery?.districtFilter ?? "all",
-  );
-  const [competitionFilter, setCompetitionFilter] = useState(
-    initialStoredQuery?.competitionFilter ?? "all",
-  );
-  const [selectedEventKey, setSelectedEventKey] = useState(
-    initialStoredQuery?.eventKey ?? "",
-  );
+  const [districtFilter, setDistrictFilter] = useState("all");
+  const [competitionFilter, setCompetitionFilter] = useState("all");
+  const [selectedEventKey, setSelectedEventKey] = useState("");
   const [pendingAutoLoadEventKey, setPendingAutoLoadEventKey] = useState<string | null>(
-    initialStoredQuery?.eventKey ?? null,
+    null,
   );
+  const [hasRestoredStoredQuery, setHasRestoredStoredQuery] = useState(false);
   const [referenceTeamKey, setReferenceTeamKey] = useState(
     DEFAULT_REFERENCE_TEAM_KEY,
   );
@@ -182,6 +176,20 @@ export function HomeClient() {
   const [scores, setScores] = useState<EventScoresResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [scoresError, setScoresError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const storedQuery = readStoredLastEventQuery();
+
+    if (storedQuery) {
+      setYear(storedQuery.year);
+      setDistrictFilter(storedQuery.districtFilter);
+      setCompetitionFilter(storedQuery.competitionFilter);
+      setSelectedEventKey(storedQuery.eventKey);
+      setPendingAutoLoadEventKey(storedQuery.eventKey);
+    }
+
+    setHasRestoredStoredQuery(true);
+  }, []);
 
   useEffect(() => {
     try {
@@ -207,6 +215,10 @@ export function HomeClient() {
   }, [pinnedTeamKey]);
 
   useEffect(() => {
+    if (!hasRestoredStoredQuery) {
+      return;
+    }
+
     const controller = new AbortController();
 
     async function loadEvents() {
@@ -241,7 +253,7 @@ export function HomeClient() {
     void loadEvents();
 
     return () => controller.abort();
-  }, [year, dictionary.eventLoadFailed]);
+  }, [year, dictionary.eventLoadFailed, hasRestoredStoredQuery]);
 
   const districtOptions = Array.from(
     new Map(
@@ -438,6 +450,10 @@ export function HomeClient() {
   }
 
   useEffect(() => {
+    if (!hasRestoredStoredQuery) {
+      return;
+    }
+
     if (!pendingAutoLoadEventKey) {
       return;
     }
@@ -487,6 +503,7 @@ export function HomeClient() {
     events,
     selectedEventKey,
     dictionary.scoreLoadFailed,
+    hasRestoredStoredQuery,
   ]);
 
   function handleAnalyze() {
