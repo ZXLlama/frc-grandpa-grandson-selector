@@ -292,15 +292,39 @@ export function HomeClient() {
   });
 
   useEffect(() => {
+    if (!hasRestoredStoredQuery || isLoadingEvents) {
+      return;
+    }
+
     if (!filteredEvents.length) {
       setSelectedEventKey("");
+      return;
+    }
+
+    if (pendingAutoLoadEventKey) {
+      const pendingEventStillVisible = filteredEvents.some(
+        (event) => event.key === pendingAutoLoadEventKey,
+      );
+
+      if (!pendingEventStillVisible) {
+        setPendingAutoLoadEventKey(null);
+      } else if (selectedEventKey !== pendingAutoLoadEventKey) {
+        setSelectedEventKey(pendingAutoLoadEventKey);
+      }
+
       return;
     }
 
     if (!filteredEvents.some((event) => event.key === selectedEventKey)) {
       setSelectedEventKey(filteredEvents[0].key);
     }
-  }, [filteredEvents, selectedEventKey]);
+  }, [
+    filteredEvents,
+    hasRestoredStoredQuery,
+    isLoadingEvents,
+    pendingAutoLoadEventKey,
+    selectedEventKey,
+  ]);
 
   useEffect(() => {
     if (!scores?.event.key) {
@@ -462,7 +486,7 @@ export function HomeClient() {
       return;
     }
 
-    const storedEventStillExists = events.some(
+    const storedEventStillExists = filteredEvents.some(
       (event) => event.key === pendingAutoLoadEventKey,
     );
 
@@ -500,7 +524,7 @@ export function HomeClient() {
     isLoadingEvents,
     isAnalyzing,
     eventsError,
-    events,
+    filteredEvents,
     selectedEventKey,
     dictionary.scoreLoadFailed,
     hasRestoredStoredQuery,
