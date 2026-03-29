@@ -153,6 +153,7 @@ export function HomeClient() {
     locale === "zh-TW"
       ? "用 The Blue Alliance 即時資料快速了解爸爸去哪兒"
       : "Use live The Blue Alliance data to quickly see where the dads are.";
+  const tbaEventLabel = locale === "zh-TW" ? "TBA" : "TBA";
   const [year, setYear] = useState(initialStoredQuery?.year ?? DEFAULT_FRC_YEAR);
   const [events, setEvents] = useState<EventOption[]>([]);
   const [districtFilter, setDistrictFilter] = useState(
@@ -577,7 +578,17 @@ export function HomeClient() {
             <div className={styles.resultsTitle}>{dictionary.resultsTitle}</div>
             {selectedEvent ? (
               <>
-                <h2 className={styles.eventName}>{selectedEvent.name}</h2>
+                <div className={styles.eventTitleRow}>
+                  <h2 className={styles.eventName}>{selectedEvent.name}</h2>
+                  <a
+                    className={styles.eventLink}
+                    href={`https://www.thebluealliance.com/event/${selectedEvent.key}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {tbaEventLabel}
+                  </a>
+                </div>
                 {eventMeta ? (
                   <div className={styles.eventMeta}>{eventMeta}</div>
                 ) : null}
@@ -689,6 +700,7 @@ export function HomeClient() {
                     isReference={isReference}
                     referenceTeam={referenceTeam}
                     useRelativeMode={useRelativeMode}
+                    isEventFinished={scores.event.isFinished}
                   />
                 ),
               )}

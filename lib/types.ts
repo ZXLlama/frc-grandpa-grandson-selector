@@ -74,6 +74,7 @@ export interface TeamRecord {
 export interface RankingSnapshot {
   rank: number;
   matchesPlayed: number;
+  rankingScore: number | null;
 }
 
 export interface QualificationSnapshot {
@@ -84,6 +85,7 @@ export interface QualificationSnapshot {
   matchesPlayed: number;
   record: TeamRecord;
   ranking: RankingSnapshot | null;
+  rankingScore: number | null;
   rankPercentile: number | null;
   winRate: number | null;
   trend: number | null;
@@ -120,6 +122,7 @@ export interface PlayoffContext {
   confidence: number;
   confidenceLevel: ConfidenceLevel;
   consistency: number | null;
+  isComplete: boolean;
 }
 
 export interface CalibrationSnapshot {

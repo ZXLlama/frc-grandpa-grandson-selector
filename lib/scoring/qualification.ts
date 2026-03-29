@@ -16,6 +16,7 @@ import type {
   TbaEventTeamStatuses,
   TbaMatchSimple,
   TbaOprs,
+  TbaRankingEntry,
   TbaRankings,
   TbaTeamSimple,
 } from "@/lib/server/tba";
@@ -172,6 +173,7 @@ function averageSignals(values: Array<number | null | undefined>): number | null
 function toRankingSnapshot(
   rank: number | null,
   matchesPlayed: number | null,
+  rankingScore: number | null,
 ): RankingSnapshot | null {
   if (rank === null) {
     return null;
@@ -180,7 +182,23 @@ function toRankingSnapshot(
   return {
     rank,
     matchesPlayed: matchesPlayed ?? 0,
+    rankingScore,
   };
+}
+
+function getRankingScoreValue(ranking: TbaRankingEntry | null): number | null {
+  if (!ranking) {
+    return null;
+  }
+
+  if (typeof ranking.qual_average === "number" && Number.isFinite(ranking.qual_average)) {
+    return ranking.qual_average;
+  }
+
+  const firstSortOrder = ranking.sort_orders[0];
+  return typeof firstSortOrder === "number" && Number.isFinite(firstSortOrder)
+    ? firstSortOrder
+    : null;
 }
 
 function getStabilitySignal(performances: number[]): number | null {
@@ -674,6 +692,7 @@ export function analyzeQualification(input: {
   for (const team of teams) {
     const aggregate = aggregates.get(team.key)!;
     const ranking = rankingMap.get(team.key) ?? null;
+    const rankingScore = getRankingScoreValue(ranking);
     const status = teamStatuses.get(team.key) ?? null;
     const statusRank = getStatusQualRank(status);
     const rankValue = ranking?.rank ?? statusRank;
@@ -827,7 +846,8 @@ export function analyzeQualification(input: {
       rawSignal,
       matchesPlayed,
       record,
-      ranking: toRankingSnapshot(rankValue, matchesPlayed),
+      ranking: toRankingSnapshot(rankValue, matchesPlayed, rankingScore),
+      rankingScore,
       rankPercentile: getRankPercentileFromRank(rankValue, rankingUniverse),
       winRate,
       trend,

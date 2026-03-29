@@ -29,6 +29,20 @@ export function formatConfidence(confidence: number): string {
   return `${Math.round(clamp(confidence, 0, 1) * 100)}%`;
 }
 
+export function formatNumber(
+  value: number | null,
+  maximumFractionDigits = 2,
+): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits,
+  }).format(value);
+}
+
 export function formatPercent(value: number | null, digits = 0): string | null {
   if (value === null) {
     return null;

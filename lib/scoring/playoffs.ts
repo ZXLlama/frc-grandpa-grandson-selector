@@ -6,6 +6,7 @@ import type {
 } from "@/lib/types";
 import type {
   TbaAlliance,
+  TbaEventTeamStatuses,
   TbaMatchSimple,
   TbaTeamSimple,
 } from "@/lib/server/tba";
@@ -30,6 +31,7 @@ type AllianceAggregate = {
   finalWins: number;
   finalLosses: number;
   status: string | null;
+  isComplete: boolean;
 };
 
 export type PlayoffAllianceSummary = {
@@ -47,6 +49,7 @@ export type PlayoffAllianceSummary = {
   score: number | null;
   confidence: number;
   consistency: number | null;
+  isComplete: boolean;
   wonEvent: boolean;
 };
 
@@ -137,10 +140,37 @@ function getAdvancementSignal(finish: PlayoffFinish): number {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getTeamPlayoffStatus(status: unknown): string | null {
+  if (!isRecord(status)) {
+    return null;
+  }
+
+  const playoff = isRecord(status.playoff) ? status.playoff : null;
+  const playoffStatus = playoff && typeof playoff.status === "string"
+    ? playoff.status
+    : null;
+
+  return playoffStatus;
+}
+
+function isClosedPlayoffStatus(status: string | null): boolean {
+  if (!status) {
+    return false;
+  }
+
+  const normalized = status.toLowerCase();
+  return normalized === "won" || normalized === "eliminated";
+}
+
 export function analyzePlayoffs(input: {
   teams: TbaTeamSimple[];
   matches: TbaMatchSimple[];
   alliances: TbaAlliance[] | null;
+  teamStatuses: TbaEventTeamStatuses | null;
 }): {
   alliances: PlayoffAllianceSummary[];
   playoffMatches: TbaMatchSimple[];
@@ -155,6 +185,7 @@ export function analyzePlayoffs(input: {
     .sort((left, right) => getMatchOrder(left) - getMatchOrder(right));
   const aggregates = new Map<string, AllianceAggregate>();
   const teamToAlliance = new Map<string, string>();
+  const teamStatuses = new Map(Object.entries(input.teamStatuses ?? {}));
 
   for (const [index, alliance] of (input.alliances ?? []).entries()) {
     const seed = getSeedFromAlliance(alliance, index);
@@ -183,6 +214,7 @@ export function analyzePlayoffs(input: {
       finalWins: 0,
       finalLosses: 0,
       status: alliance.status?.status ?? null,
+      isComplete: false,
     });
 
     for (const teamKey of members) {
@@ -227,6 +259,7 @@ export function analyzePlayoffs(input: {
         finalWins: 0,
         finalLosses: 0,
         status: null,
+        isComplete: false,
       });
 
       for (const teamKey of cleanedTeamKeys) {
@@ -375,13 +408,21 @@ export function analyzePlayoffs(input: {
     const advancement = getAdvancement(aggregate);
     const winRate = getWinRate(record, aggregate.matchesPlayed);
     const consistency = normalizedConsistency.get(aggregate.key) ?? null;
-    const confidence = clamp(
-      Math.min(aggregate.matchesPlayed / 5, 1) * 0.72 +
-        (aggregate.seed !== null ? 0.16 : 0) +
-        (aggregate.status ? 0.08 : 0),
-      0.14,
-      1,
-    );
+    const isComplete =
+      isClosedPlayoffStatus(aggregate.status) ||
+      [...aggregate.members].some((teamKey) =>
+        isClosedPlayoffStatus(getTeamPlayoffStatus(teamStatuses.get(teamKey))),
+      );
+    aggregate.isComplete = isComplete;
+    const confidence = isComplete
+      ? 1
+      : clamp(
+          Math.min(aggregate.matchesPlayed / 5, 1) * 0.72 +
+            (aggregate.seed !== null ? 0.16 : 0) +
+            (aggregate.status ? 0.08 : 0),
+          0.14,
+          1,
+        );
     const normalizedSignal = normalizedSignals.get(aggregate.key) ?? rawSignals.get(aggregate.key) ?? 0;
     const score =
       aggregate.matchesPlayed === 0 && aggregate.seed === null
@@ -408,6 +449,7 @@ export function analyzePlayoffs(input: {
       score,
       confidence,
       consistency,
+      isComplete,
       wonEvent,
     });
 
@@ -433,6 +475,7 @@ export function analyzePlayoffs(input: {
         confidence,
         confidenceLevel: getConfidenceLevel(confidence),
         consistency,
+        isComplete,
       });
     }
   }

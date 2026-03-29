@@ -7,6 +7,7 @@ import { buildTeamInsights } from "@/lib/insights";
 import {
   buildRelativeComparisonText,
   formatConfidence,
+  formatNumber,
   formatRecord,
   formatSignedScore,
   formatMetaList,
@@ -28,6 +29,7 @@ type TeamScoreCardProps = {
   isReference: boolean;
   referenceTeam: TeamScore | null;
   useRelativeMode: boolean;
+  isEventFinished: boolean;
 };
 
 export function TeamScoreCard({
@@ -40,11 +42,12 @@ export function TeamScoreCard({
   isReference,
   referenceTeam,
   useRelativeMode,
+  isEventFinished,
 }: TeamScoreCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const dictionary = getDictionary(locale);
   const theme = getCategoryTheme(displayedCategory);
-  const insights = buildTeamInsights(team, locale, analysisTab);
+  const insights = buildTeamInsights(team, locale, analysisTab, isEventFinished);
   const currentScore =
     analysisTab === "playoff" ? team.playoff?.score ?? 0 : team.qualification.score;
   const currentLabel =
@@ -83,6 +86,9 @@ export function TeamScoreCard({
           team.ranking ? `${dictionary.rankLabel} #${team.ranking.rank}` : dictionary.unrankedLabel,
           formatRecord(team.qualification.record),
           `${dictionary.confidenceLabel} ${formatConfidence(team.qualification.confidence)}`,
+          team.qualification.rankingScore !== null
+            ? `Ranking Score ${formatNumber(team.qualification.rankingScore)}`
+            : null,
         ]);
   const cssVars = {
     "--accent": theme.accent,
@@ -178,6 +184,10 @@ export function TeamScoreCard({
               <div className={styles.metric}>
                 <span>{dictionary.confidenceShortLabel}</span>
                 <strong>{formatConfidence(currentConfidence)}</strong>
+              </div>
+              <div className={`${styles.metric} ${styles.metricFull}`.trim()}>
+                <span>Ranking Score</span>
+                <strong>{formatNumber(team.qualification.rankingScore)}</strong>
               </div>
             </div>
 

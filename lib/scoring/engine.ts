@@ -42,6 +42,7 @@ function createEmptyQualification(): QualificationSnapshot {
     matchesPlayed: 0,
     record: { wins: 0, losses: 0, ties: 0 },
     ranking: null,
+    rankingScore: null,
     rankPercentile: null,
     winRate: null,
     trend: null,
@@ -96,6 +97,7 @@ export function computeEventScores(input: {
     teams,
     matches: input.matches,
     alliances: input.alliances,
+    teamStatuses: input.teamStatuses,
   });
 
   const scoredTeams = teams
