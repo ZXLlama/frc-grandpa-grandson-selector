@@ -174,6 +174,7 @@ function toRankingSnapshot(
   rank: number | null,
   matchesPlayed: number | null,
   rankingScore: number | null,
+  totalRankingPoints: number | null,
 ): RankingSnapshot | null {
   if (rank === null) {
     return null;
@@ -183,6 +184,7 @@ function toRankingSnapshot(
     rank,
     matchesPlayed: matchesPlayed ?? 0,
     rankingScore,
+    totalRankingPoints,
   };
 }
 
@@ -198,6 +200,19 @@ function getRankingScoreValue(ranking: TbaRankingEntry | null): number | null {
   const firstSortOrder = ranking.sort_orders[0];
   return typeof firstSortOrder === "number" && Number.isFinite(firstSortOrder)
     ? firstSortOrder
+    : null;
+}
+
+function getTotalRankingPointsValue(
+  ranking: TbaRankingEntry | null,
+  rankingScore: number | null,
+): number | null {
+  if (!ranking || rankingScore === null || ranking.matches_played <= 0) {
+    return null;
+  }
+
+  return ranking.qual_average !== null && ranking.qual_average !== undefined
+    ? ranking.qual_average * ranking.matches_played
     : null;
 }
 
@@ -544,6 +559,8 @@ export function analyzeQualification(input: {
   const autoBreakdownValues = new Map<string, number | null>();
   const endgameBreakdownValues = new Map<string, number | null>();
   const rankingSignals = new Map<string, number | null>();
+  const rankingScoreValues = new Map<string, number | null>();
+  const totalRankingPointValues = new Map<string, number | null>();
   const rankingTiebreakers = new Map<string, number | null>();
   const districtPointTotals = new Map<string, number | null>();
 
@@ -554,6 +571,8 @@ export function analyzeQualification(input: {
     const ranking = rankingMap.get(team.key) ?? null;
     const status = teamStatuses.get(team.key) ?? null;
     const rankValue = ranking?.rank ?? getStatusQualRank(status);
+    const rankingScore = getRankingScoreValue(ranking);
+    const totalRankingPoints = getTotalRankingPointsValue(ranking, rankingScore);
 
     oprValues.set(team.key, input.oprs?.oprs?.[team.key] ?? null);
     ccwmValues.set(team.key, input.oprs?.ccwms?.[team.key] ?? null);
@@ -594,6 +613,8 @@ export function analyzeQualification(input: {
       ),
     );
     rankingSignals.set(team.key, getRankingSignalFromRank(rankValue, rankingUniverse));
+    rankingScoreValues.set(team.key, rankingScore);
+    totalRankingPointValues.set(team.key, totalRankingPoints);
     rankingTiebreakers.set(
       team.key,
       ranking
@@ -617,19 +638,23 @@ export function analyzeQualification(input: {
   const normalizedFloors = normalizeDistribution(floorValues, 1.55);
   const normalizedAutoBreakdown = normalizeDistribution(autoBreakdownValues, 1.3);
   const normalizedEndgameBreakdown = normalizeDistribution(endgameBreakdownValues, 1.3);
+  const normalizedRankingScores = normalizeDistribution(rankingScoreValues, 1.4);
+  const normalizedTotalRankingPoints = normalizeDistribution(totalRankingPointValues, 1.45);
   const normalizedTiebreakers = normalizeDistribution(rankingTiebreakers, 1.45);
   const normalizedDistrictPoints = normalizeDistribution(districtPointTotals, 1.45);
 
   let ratings = new Map<string, number>();
 
   for (const team of teams) {
-    const initial = averageSignals([
-      normalizedCcwms.get(team.key) ?? null,
-      normalizedOprs.get(team.key) ?? null,
-      rankingSignals.get(team.key) ?? null,
-      normalizedCleanScores.get(team.key) ?? null,
-      componentSignals.breadthSignals.get(team.key) ?? null,
-    ]);
+      const initial = averageSignals([
+        normalizedCcwms.get(team.key) ?? null,
+        normalizedOprs.get(team.key) ?? null,
+        rankingSignals.get(team.key) ?? null,
+        normalizedRankingScores.get(team.key) ?? null,
+        normalizedTotalRankingPoints.get(team.key) ?? null,
+        normalizedCleanScores.get(team.key) ?? null,
+        componentSignals.breadthSignals.get(team.key) ?? null,
+      ]);
 
     ratings.set(team.key, clamp(initial ?? 0, -1, 1));
   }
@@ -644,6 +669,8 @@ export function analyzeQualification(input: {
         normalizedCcwms.get(team.key) ?? null,
         normalizedOprs.get(team.key) ?? null,
         rankingSignals.get(team.key) ?? null,
+        normalizedRankingScores.get(team.key) ?? null,
+        normalizedTotalRankingPoints.get(team.key) ?? null,
         normalizedCleanScores.get(team.key) ?? null,
         componentSignals.breadthSignals.get(team.key) ?? null,
       ]) ?? priorRating;
@@ -693,6 +720,7 @@ export function analyzeQualification(input: {
     const aggregate = aggregates.get(team.key)!;
     const ranking = rankingMap.get(team.key) ?? null;
     const rankingScore = getRankingScoreValue(ranking);
+    const totalRankingPoints = getTotalRankingPointsValue(ranking, rankingScore);
     const status = teamStatuses.get(team.key) ?? null;
     const statusRank = getStatusQualRank(status);
     const rankValue = ranking?.rank ?? statusRank;
@@ -789,6 +817,9 @@ export function analyzeQualification(input: {
             0.14,
             1,
           );
+    const rankingScoreSignal = normalizedRankingScores.get(team.key) ?? null;
+    const totalRankingPointSignal =
+      normalizedTotalRankingPoints.get(team.key) ?? null;
     const rankingTiebreaker = normalizedTiebreakers.get(team.key) ?? null;
     const districtPointSignal = normalizedDistrictPoints.get(team.key) ?? null;
 
@@ -805,6 +836,8 @@ export function analyzeQualification(input: {
         (consistency ?? 0) * 0.07 +
         (scheduleDifficulty ?? 0) * 0.06 +
         (rankingSignal ?? 0) * 0.04 * rankTrust +
+        (rankingScoreSignal ?? 0) * 0.03 * rankTrust +
+        (totalRankingPointSignal ?? 0) * 0.03 * rankTrust +
         (rankingTiebreaker ?? 0) * 0.02 * rankTrust +
         (underseedSignal ?? 0) * 0.05 +
         (districtPointSignal ?? 0) * 0.02 -
@@ -846,8 +879,14 @@ export function analyzeQualification(input: {
       rawSignal,
       matchesPlayed,
       record,
-      ranking: toRankingSnapshot(rankValue, matchesPlayed, rankingScore),
+      ranking: toRankingSnapshot(
+        rankValue,
+        matchesPlayed,
+        rankingScore,
+        totalRankingPoints,
+      ),
       rankingScore,
+      totalRankingPoints,
       rankPercentile: getRankPercentileFromRank(rankValue, rankingUniverse),
       winRate,
       trend,

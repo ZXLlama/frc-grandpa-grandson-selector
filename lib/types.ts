@@ -75,6 +75,7 @@ export interface RankingSnapshot {
   rank: number;
   matchesPlayed: number;
   rankingScore: number | null;
+  totalRankingPoints: number | null;
 }
 
 export interface QualificationSnapshot {
@@ -86,6 +87,7 @@ export interface QualificationSnapshot {
   record: TeamRecord;
   ranking: RankingSnapshot | null;
   rankingScore: number | null;
+  totalRankingPoints: number | null;
   rankPercentile: number | null;
   winRate: number | null;
   trend: number | null;

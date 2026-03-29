@@ -48,6 +48,9 @@ export function TeamScoreCard({
   const dictionary = getDictionary(locale);
   const theme = getCategoryTheme(displayedCategory);
   const insights = buildTeamInsights(team, locale, analysisTab, isEventFinished);
+  const rankingScoreLabel = locale === "zh-TW" ? "排名分" : "Ranking Score";
+  const totalRankingPointsLabel =
+    locale === "zh-TW" ? "總排名分" : "Total Ranking Points";
   const currentScore =
     analysisTab === "playoff" ? team.playoff?.score ?? 0 : team.qualification.score;
   const currentLabel =
@@ -87,7 +90,10 @@ export function TeamScoreCard({
           formatRecord(team.qualification.record),
           `${dictionary.confidenceLabel} ${formatConfidence(team.qualification.confidence)}`,
           team.qualification.rankingScore !== null
-            ? `Ranking Score ${formatNumber(team.qualification.rankingScore)}`
+            ? `${rankingScoreLabel} ${formatNumber(team.qualification.rankingScore)}`
+            : null,
+          team.qualification.totalRankingPoints !== null
+            ? `${totalRankingPointsLabel} ${formatNumber(team.qualification.totalRankingPoints)}`
             : null,
         ]);
   const cssVars = {
@@ -186,7 +192,7 @@ export function TeamScoreCard({
                 <strong>{formatConfidence(currentConfidence)}</strong>
               </div>
               <div className={`${styles.metric} ${styles.metricFull}`.trim()}>
-                <span>Ranking Score</span>
+                <span>{rankingScoreLabel}</span>
                 <strong>{formatNumber(team.qualification.rankingScore)}</strong>
               </div>
             </div>

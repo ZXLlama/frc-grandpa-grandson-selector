@@ -43,6 +43,7 @@ function createEmptyQualification(): QualificationSnapshot {
     record: { wins: 0, losses: 0, ties: 0 },
     ranking: null,
     rankingScore: null,
+    totalRankingPoints: null,
     rankPercentile: null,
     winRate: null,
     trend: null,
