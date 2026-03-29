@@ -153,7 +153,7 @@ export function HomeClient() {
     locale === "zh-TW"
       ? "用 The Blue Alliance 即時資料快速了解爸爸去哪兒"
       : "Use live The Blue Alliance data to quickly see where the dads are.";
-  const tbaEventLabel = locale === "zh-TW" ? "TBA" : "TBA";
+  const tbaEventLabel = locale === "zh-TW" ? "開啟 TBA 頁面" : "Open in TBA";
   const [year, setYear] = useState(initialStoredQuery?.year ?? DEFAULT_FRC_YEAR);
   const [events, setEvents] = useState<EventOption[]>([]);
   const [districtFilter, setDistrictFilter] = useState(
@@ -586,6 +586,16 @@ export function HomeClient() {
                     target="_blank"
                     rel="noreferrer"
                   >
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className={styles.eventLinkIcon}
+                    >
+                      <path
+                        fill="currentColor"
+                        d="M14 3h7v7h-2V6.41l-8.29 8.3-1.42-1.42 8.3-8.29H14V3Zm4 16H6V7h5V5H6a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2v-5h-2v5Z"
+                      />
+                    </svg>
                     {tbaEventLabel}
                   </a>
                 </div>
