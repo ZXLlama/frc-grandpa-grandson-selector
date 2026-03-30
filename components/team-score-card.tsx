@@ -3,20 +3,20 @@
 import { memo, useState, type CSSProperties } from "react";
 
 import { getDictionary } from "@/lib/i18n";
-import { buildTeamInsights } from "@/lib/insights";
 import {
   buildRelativeComparisonText,
   formatConfidence,
+  formatMetaList,
   formatNumber,
   formatRecord,
   formatSignedScore,
-  formatMetaList,
   getCategoryTheme,
   getPlayoffPositionText,
 } from "@/lib/presenters";
 import type { AnalysisTab, Locale, ScoreCategory, TeamScore } from "@/lib/types";
 
 import { ScoreGauge } from "@/components/score-gauge";
+import { TeamBreakdownDashboard } from "@/components/team-breakdown-dashboard";
 import styles from "@/components/team-score-card.module.css";
 
 type TeamScoreCardProps = {
@@ -50,6 +50,7 @@ function TeamScoreCardComponent({
   const rankingScoreLabel = locale === "zh-TW" ? "排名分" : "Ranking Score";
   const totalRankingPointsLabel =
     locale === "zh-TW" ? "總排名分" : "Total Ranking Points";
+  const detailTitle = locale === "zh-TW" ? "分析面板" : "Breakdown";
   const currentScore =
     analysisTab === "playoff" ? team.playoff?.score ?? 0 : team.qualification.score;
   const currentLabel =
@@ -83,6 +84,7 @@ function TeamScoreCardComponent({
           team.playoff?.positionCode,
           playoffPositionText,
           team.playoff ? formatRecord(team.playoff.record) : null,
+          team.playoff?.allianceLabel,
         ])
       : formatMetaList([
           team.ranking ? `${dictionary.rankLabel} #${team.ranking.rank}` : dictionary.unrankedLabel,
@@ -211,7 +213,7 @@ function TeamScoreCardComponent({
         {isExpanded ? (
           <div className={styles.detailsInner}>
             <div className={styles.detailsHeader}>
-              <div className={styles.detailsTitle}>{dictionary.scoutingNotesLabel}</div>
+              <div className={styles.detailsTitle}>{detailTitle}</div>
               <div className={styles.detailsConfidence}>
                 {dictionary.confidenceLabel} {formatConfidence(currentConfidence)}
               </div>
@@ -219,18 +221,12 @@ function TeamScoreCardComponent({
 
             <div className={styles.detailsMeta}>{detailMeta}</div>
 
-            <ol className={styles.analysisList}>
-              {buildTeamInsights(team, locale, analysisTab, isEventFinished).map(
-                (insight, index) => (
-                  <li
-                    key={`${team.teamKey}-${analysisTab}-${index}`}
-                    className={styles.analysisItem}
-                  >
-                    {insight}
-                  </li>
-                ),
-              )}
-            </ol>
+            <TeamBreakdownDashboard
+              team={team}
+              locale={locale}
+              analysisTab={analysisTab}
+              isEventFinished={isEventFinished}
+            />
 
             {analysisTab === "playoff" ? (
               <div className={styles.detailsFoot}>{dictionary.playoffAllianceNote}</div>
