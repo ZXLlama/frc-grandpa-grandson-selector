@@ -170,6 +170,33 @@ function averageSignals(values: Array<number | null | undefined>): number | null
   return mean(numeric);
 }
 
+function weightedAverageSignals(
+  values: Array<{ value: number | null | undefined; weight: number }>,
+): number | null {
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  for (const { value, weight } of values) {
+    if (
+      typeof value !== "number" ||
+      !Number.isFinite(value) ||
+      !Number.isFinite(weight) ||
+      weight <= 0
+    ) {
+      continue;
+    }
+
+    weightedSum += value * weight;
+    totalWeight += weight;
+  }
+
+  if (totalWeight <= 0) {
+    return null;
+  }
+
+  return clamp(weightedSum / totalWeight, -1, 1);
+}
+
 function toRankingSnapshot(
   rank: number | null,
   matchesPlayed: number | null,
@@ -906,22 +933,15 @@ export function analyzeQualification(input: {
       clamp(-inflationRisk, -1, 1),
     ]);
 
-    const rawSignal = clamp(
-      (underlyingStrength ?? 0) * 0.27 +
-        (resumeStrength ?? 0) * 0.12 * rankTrust +
-        (scoringStrength ?? 0) * 0.14 +
-        (stabilityStrength ?? 0) * 0.11 +
-        (ceilingStrength ?? 0) * 0.1 +
-        (scheduleAdjustedStrength ?? 0) * 0.13 +
-        (trend ?? 0) * 0.05 +
-        (districtPointSignal ?? 0) * 0.03 +
-        (underseedSignal ?? 0) * 0.03 -
-        Math.max(0, inflationRisk) * 0.08 -
-        foulPenalty * 0.05 -
-        Math.max(0, allianceCarryRisk ?? 0) * 0.04,
-      -1.6,
-      1.6,
-    );
+    const rawSignal =
+      weightedAverageSignals([
+        { value: resumeStrength === null ? null : resumeStrength * rankTrust, weight: 0.16 },
+        { value: underlyingStrength, weight: 0.28 },
+        { value: scheduleAdjustedStrength, weight: 0.16 },
+        { value: scoringStrength, weight: 0.16 },
+        { value: stabilityStrength, weight: 0.12 },
+        { value: ceilingStrength, weight: 0.12 },
+      ]) ?? 0;
 
     rawSignals.set(team.key, rawSignal);
 
@@ -998,16 +1018,17 @@ export function analyzeQualification(input: {
     });
   }
 
-  const normalizedSignals = normalizeDistribution(rawSignals, 1.02);
+  const normalizedSignals = normalizeDistribution(rawSignals, 1.6);
   const results = new Map<string, QualificationMetrics>();
 
   for (const team of teams) {
     const metrics = metricsByTeam.get(team.key)!;
     const confidence = metrics.baseConfidence;
-    const normalizedSignal =
-      normalizedSignals.get(team.key) ?? metrics.adjustedPerformance ?? 0;
-    const dampedSignal = normalizedSignal * (0.22 + confidence * 0.78);
-    const score = roundTo(clamp(dampedSignal * 10, -10, 10), 1);
+    const baseSignal = metrics.rawSignal ?? metrics.adjustedPerformance ?? 0;
+    const fieldSignal = normalizedSignals.get(team.key) ?? baseSignal;
+    const combinedSignal = clamp(baseSignal * 0.84 + fieldSignal * 0.16, -1, 1);
+    const confidenceShrink = 1 - (1 - confidence) * 0.24;
+    const score = roundTo(clamp(combinedSignal * confidenceShrink * 10, -10, 10), 1);
 
     results.set(team.key, {
       ...metrics,

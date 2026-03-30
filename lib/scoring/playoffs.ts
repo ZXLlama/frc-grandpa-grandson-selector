@@ -166,6 +166,33 @@ function isClosedPlayoffStatus(status: string | null): boolean {
   return normalized === "won" || normalized === "eliminated";
 }
 
+function weightedAverageSignals(
+  values: Array<{ value: number | null | undefined; weight: number }>,
+): number | null {
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  for (const { value, weight } of values) {
+    if (
+      typeof value !== "number" ||
+      !Number.isFinite(value) ||
+      !Number.isFinite(weight) ||
+      weight <= 0
+    ) {
+      continue;
+    }
+
+    weightedSum += value * weight;
+    totalWeight += weight;
+  }
+
+  if (totalWeight <= 0) {
+    return null;
+  }
+
+  return clamp(weightedSum / totalWeight, -1, 1);
+}
+
 export function analyzePlayoffs(input: {
   teams: TbaTeamSimple[];
   matches: TbaMatchSimple[];
@@ -358,7 +385,6 @@ export function analyzePlayoffs(input: {
       aggregate.seed === null || allianceCount <= 1
         ? 0
         : clamp((1 - (aggregate.seed - 1) / (allianceCount - 1)) * 2 - 1, -1, 1);
-    const consistency = normalizedConsistency.get(aggregate.key) ?? 0;
     const marginStrength = normalizedMargins.get(aggregate.key) ?? 0;
     const advancementStrength = getAdvancementSignal(advancement);
     const allianceControl = clamp(
@@ -374,19 +400,16 @@ export function analyzePlayoffs(input: {
 
     rawSignals.set(
       aggregate.key,
-      clamp(
-        advancementStrength * 0.4 +
-          allianceControl * 0.24 +
-          consistency * 0.12 +
-          seedSignal * 0.1 +
-          upsetStrength * 0.14,
-        -1.35,
-        1.35,
-      ),
+      weightedAverageSignals([
+        { value: advancementStrength, weight: 0.38 },
+        { value: allianceControl, weight: 0.28 },
+        { value: seedSignal, weight: 0.12 },
+        { value: upsetStrength, weight: 0.22 },
+      ]) ?? 0,
     );
   }
 
-  const normalizedSignals = normalizeDistribution(rawSignals, 1.1);
+  const normalizedSignals = normalizeDistribution(rawSignals, 1.45);
   const results = new Map<string, PlayoffContext>();
   const alliances: PlayoffAllianceSummary[] = [];
 
@@ -466,12 +489,25 @@ export function analyzePlayoffs(input: {
           0.14,
           1,
         );
-    const normalizedSignal = normalizedSignals.get(aggregate.key) ?? rawSignals.get(aggregate.key) ?? 0;
+    const sampleCompleteness = isComplete
+      ? 1
+      : clamp(
+          aggregate.matchesPlayed / 4 +
+            (aggregate.seed !== null ? 0.12 : 0) +
+            (aggregate.status ? 0.08 : 0),
+          0,
+          1,
+        );
+    const baseSignal = rawSignals.get(aggregate.key) ?? 0;
+    const fieldSignal = normalizedSignals.get(aggregate.key) ?? baseSignal;
+    const combinedSignal = clamp(baseSignal * 0.82 + fieldSignal * 0.18, -1, 1);
+    const confidenceShrink =
+      1 - (1 - (confidence * 0.55 + sampleCompleteness * 0.45)) * 0.24;
     const score =
       aggregate.matchesPlayed === 0 && aggregate.seed === null
         ? null
         : roundTo(
-            clamp(normalizedSignal * 10 * (0.34 + confidence * 0.66), -10, 10),
+            clamp(combinedSignal * confidenceShrink * 10, -10, 10),
             1,
           );
     const wonEvent =
