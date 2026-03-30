@@ -47,10 +47,13 @@ function createEmptyQualification(): QualificationSnapshot {
     rankPercentile: null,
     winRate: null,
     trend: null,
+    marginStrength: null,
     scheduleDifficulty: null,
     partnerStrength: null,
     opponentStrength: null,
     adjustedPerformance: null,
+    defensiveResistance: null,
+    allianceCarryRisk: null,
     scorePotential: null,
     cleanScoring: null,
     scoringCeiling: null,
@@ -63,6 +66,14 @@ function createEmptyQualification(): QualificationSnapshot {
     consistency: null,
     rankDelta: null,
     inflationRisk: null,
+    breakdown: {
+      resumeStrength: null,
+      underlyingStrength: null,
+      scoringStrength: null,
+      stabilityStrength: null,
+      ceilingStrength: null,
+      scheduleAdjustedStrength: null,
+    },
   };
 }
 

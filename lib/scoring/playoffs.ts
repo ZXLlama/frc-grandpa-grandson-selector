@@ -10,7 +10,7 @@ import type {
   TbaMatchSimple,
   TbaTeamSimple,
 } from "@/lib/server/tba";
-import { normalizeDistribution, standardDeviation } from "@/lib/scoring/math";
+import { mean, normalizeDistribution, standardDeviation } from "@/lib/scoring/math";
 import { getMatchOrder, getWinRate, isPlayedMatch } from "@/lib/scoring/shared";
 
 type AllianceAggregate = {
@@ -330,6 +330,7 @@ export function analyzePlayoffs(input: {
   const allianceCount = Math.max(aggregates.size, 1);
   const rawSignals = new Map<string, number | null>();
   const consistencyValues = new Map<string, number | null>();
+  const marginValues = new Map<string, number | null>();
 
   for (const aggregate of aggregates.values()) {
     const consistency =
@@ -338,9 +339,14 @@ export function analyzePlayoffs(input: {
         : clamp((1 - standardDeviation(aggregate.margins) / 20) * 2 - 1, -1, 1);
 
     consistencyValues.set(aggregate.key, consistency);
+    marginValues.set(
+      aggregate.key,
+      aggregate.margins.length ? mean(aggregate.margins) : null,
+    );
   }
 
   const normalizedConsistency = normalizeDistribution(consistencyValues, 1.2);
+  const normalizedMargins = normalizeDistribution(marginValues, 1.2);
 
   for (const aggregate of aggregates.values()) {
     const record = toRecord(aggregate);
@@ -353,16 +359,29 @@ export function analyzePlayoffs(input: {
         ? 0
         : clamp((1 - (aggregate.seed - 1) / (allianceCount - 1)) * 2 - 1, -1, 1);
     const consistency = normalizedConsistency.get(aggregate.key) ?? 0;
+    const marginStrength = normalizedMargins.get(aggregate.key) ?? 0;
+    const advancementStrength = getAdvancementSignal(advancement);
+    const allianceControl = clamp(
+      winRateSignal * 0.58 + marginStrength * 0.42,
+      -1,
+      1,
+    );
+    const upsetStrength = clamp(
+      advancementStrength - seedSignal * 0.62 + marginStrength * 0.16,
+      -1,
+      1,
+    );
 
     rawSignals.set(
       aggregate.key,
       clamp(
-        getAdvancementSignal(advancement) * 0.46 +
-          winRateSignal * 0.28 +
-          consistency * 0.14 +
-          seedSignal * 0.12,
-        -1.3,
-        1.3,
+        advancementStrength * 0.4 +
+          allianceControl * 0.24 +
+          consistency * 0.12 +
+          seedSignal * 0.1 +
+          upsetStrength * 0.14,
+        -1.35,
+        1.35,
       ),
     );
   }
@@ -408,6 +427,30 @@ export function analyzePlayoffs(input: {
     const advancement = getAdvancement(aggregate);
     const winRate = getWinRate(record, aggregate.matchesPlayed);
     const consistency = normalizedConsistency.get(aggregate.key) ?? null;
+    const marginStrength = normalizedMargins.get(aggregate.key) ?? null;
+    const seedSignal =
+      aggregate.seed === null || allianceCount <= 1
+        ? null
+        : clamp((1 - (aggregate.seed - 1) / (allianceCount - 1)) * 2 - 1, -1, 1);
+    const winRateSignal =
+      winRate === null ? null : clamp((winRate - 0.5) * 2, -1, 1);
+    const advancementStrength = getAdvancementSignal(advancement);
+    const allianceControl =
+      winRateSignal === null && marginStrength === null
+        ? null
+        : clamp(
+            (winRateSignal ?? 0) * 0.58 + (marginStrength ?? 0) * 0.42,
+            -1,
+            1,
+          );
+    const upsetSignal =
+      seedSignal === null
+        ? null
+        : clamp(
+            advancementStrength - seedSignal * 0.62 + (marginStrength ?? 0) * 0.16,
+            -1,
+            1,
+          );
     const isComplete =
       isClosedPlayoffStatus(aggregate.status) ||
       [...aggregate.members].some((teamKey) =>
@@ -472,10 +515,19 @@ export function analyzePlayoffs(input: {
         winRate,
         advancement,
         score,
+        marginStrength,
+        upsetSignal,
         confidence,
         confidenceLevel: getConfidenceLevel(confidence),
         consistency,
         isComplete,
+        breakdown: {
+          advancementStrength,
+          allianceControl,
+          seedStrength: seedSignal,
+          upsetStrength: upsetSignal,
+          consistencyStrength: consistency,
+        },
       });
     }
   }

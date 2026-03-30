@@ -78,6 +78,15 @@ export interface RankingSnapshot {
   totalRankingPoints: number | null;
 }
 
+export interface QualificationBreakdown {
+  resumeStrength: number | null;
+  underlyingStrength: number | null;
+  scoringStrength: number | null;
+  stabilityStrength: number | null;
+  ceilingStrength: number | null;
+  scheduleAdjustedStrength: number | null;
+}
+
 export interface QualificationSnapshot {
   score: number;
   category: ScoreCategory;
@@ -91,10 +100,13 @@ export interface QualificationSnapshot {
   rankPercentile: number | null;
   winRate: number | null;
   trend: number | null;
+  marginStrength: number | null;
   scheduleDifficulty: number | null;
   partnerStrength: number | null;
   opponentStrength: number | null;
   adjustedPerformance: number | null;
+  defensiveResistance: number | null;
+  allianceCarryRisk: number | null;
   scorePotential: number | null;
   cleanScoring: number | null;
   scoringCeiling: number | null;
@@ -107,6 +119,15 @@ export interface QualificationSnapshot {
   consistency: number | null;
   rankDelta: number | null;
   inflationRisk: number | null;
+  breakdown: QualificationBreakdown;
+}
+
+export interface PlayoffBreakdown {
+  advancementStrength: number | null;
+  allianceControl: number | null;
+  seedStrength: number | null;
+  upsetStrength: number | null;
+  consistencyStrength: number | null;
 }
 
 export interface PlayoffContext {
@@ -121,10 +142,13 @@ export interface PlayoffContext {
   winRate: number | null;
   advancement: PlayoffFinish;
   score: number | null;
+  marginStrength: number | null;
+  upsetSignal: number | null;
   confidence: number;
   confidenceLevel: ConfidenceLevel;
   consistency: number | null;
   isComplete: boolean;
+  breakdown: PlayoffBreakdown;
 }
 
 export interface CalibrationSnapshot {

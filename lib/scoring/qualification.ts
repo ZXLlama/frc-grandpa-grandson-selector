@@ -246,6 +246,14 @@ function getTrendSignal(appearances: QualificationAppearance[]): number | null {
   return clamp(weightedTotal / Math.max(weightTotal, 1), -1, 1);
 }
 
+function invertSignal(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return clamp(-value, -1, 1);
+}
+
 function getScheduleAverage(
   teamKeys: string[],
   ratings: Map<string, number>,
@@ -550,8 +558,10 @@ export function analyzeQualification(input: {
   }
 
   const oprValues = new Map<string, number | null>();
+  const dprValues = new Map<string, number | null>();
   const ccwmValues = new Map<string, number | null>();
   const allianceScoreValues = new Map<string, number | null>();
+  const marginValues = new Map<string, number | null>();
   const cleanScoreValues = new Map<string, number | null>();
   const ceilingValues = new Map<string, number | null>();
   const floorValues = new Map<string, number | null>();
@@ -575,10 +585,15 @@ export function analyzeQualification(input: {
     const totalRankingPoints = getTotalRankingPointsValue(ranking, rankingScore);
 
     oprValues.set(team.key, input.oprs?.oprs?.[team.key] ?? null);
+    dprValues.set(team.key, input.oprs?.dprs?.[team.key] ?? null);
     ccwmValues.set(team.key, input.oprs?.ccwms?.[team.key] ?? null);
     allianceScoreValues.set(
       team.key,
       aggregate.ownScores.length ? mean(aggregate.ownScores) : null,
+    );
+    marginValues.set(
+      team.key,
+      aggregate.margins.length ? mean(aggregate.margins) : null,
     );
     cleanScoreValues.set(
       team.key,
@@ -631,8 +646,10 @@ export function analyzeQualification(input: {
   }
 
   const normalizedOprs = normalizeDistribution(oprValues, 1.75);
+  const normalizedDprs = normalizeDistribution(dprValues, 1.7);
   const normalizedCcwms = normalizeDistribution(ccwmValues, 1.65);
   const normalizedAllianceScores = normalizeDistribution(allianceScoreValues, 1.6);
+  const normalizedMargins = normalizeDistribution(marginValues, 1.35);
   const normalizedCleanScores = normalizeDistribution(cleanScoreValues, 1.5);
   const normalizedCeilings = normalizeDistribution(ceilingValues, 1.55);
   const normalizedFloors = normalizeDistribution(floorValues, 1.55);
@@ -642,19 +659,27 @@ export function analyzeQualification(input: {
   const normalizedTotalRankingPoints = normalizeDistribution(totalRankingPointValues, 1.45);
   const normalizedTiebreakers = normalizeDistribution(rankingTiebreakers, 1.45);
   const normalizedDistrictPoints = normalizeDistribution(districtPointTotals, 1.45);
+  const normalizedDefense = new Map<string, number | null>(
+    [...normalizedDprs.entries()].map(([teamKey, value]) => [
+      teamKey,
+      invertSignal(value),
+    ]),
+  );
 
   let ratings = new Map<string, number>();
 
   for (const team of teams) {
-      const initial = averageSignals([
-        normalizedCcwms.get(team.key) ?? null,
-        normalizedOprs.get(team.key) ?? null,
-        rankingSignals.get(team.key) ?? null,
-        normalizedRankingScores.get(team.key) ?? null,
-        normalizedTotalRankingPoints.get(team.key) ?? null,
-        normalizedCleanScores.get(team.key) ?? null,
-        componentSignals.breadthSignals.get(team.key) ?? null,
-      ]);
+    const initial = averageSignals([
+      normalizedCcwms.get(team.key) ?? null,
+      normalizedOprs.get(team.key) ?? null,
+      normalizedDefense.get(team.key) ?? null,
+      normalizedMargins.get(team.key) ?? null,
+      rankingSignals.get(team.key) ?? null,
+      normalizedRankingScores.get(team.key) ?? null,
+      normalizedTotalRankingPoints.get(team.key) ?? null,
+      normalizedCleanScores.get(team.key) ?? null,
+      componentSignals.breadthSignals.get(team.key) ?? null,
+    ]);
 
     ratings.set(team.key, clamp(initial ?? 0, -1, 1));
   }
@@ -668,6 +693,8 @@ export function analyzeQualification(input: {
       const baseSignal = averageSignals([
         normalizedCcwms.get(team.key) ?? null,
         normalizedOprs.get(team.key) ?? null,
+        normalizedDefense.get(team.key) ?? null,
+        normalizedMargins.get(team.key) ?? null,
         rankingSignals.get(team.key) ?? null,
         normalizedRankingScores.get(team.key) ?? null,
         normalizedTotalRankingPoints.get(team.key) ?? null,
@@ -739,9 +766,11 @@ export function analyzeQualification(input: {
         };
     const rankingSignal = rankingSignals.get(team.key) ?? null;
     const adjustedPerformance = ratings.get(team.key) ?? null;
+    const marginStrength = normalizedMargins.get(team.key) ?? null;
     const cleanScoring = normalizedCleanScores.get(team.key) ?? null;
     const scoringCeiling = normalizedCeilings.get(team.key) ?? null;
     const scoringFloor = normalizedFloors.get(team.key) ?? null;
+    const defensiveResistance = normalizedDefense.get(team.key) ?? null;
     const autonomousImpact = averageSignals([
       normalizedAutoBreakdown.get(team.key) ?? null,
       componentSignals.autoSignals.get(team.key) ?? null,
@@ -794,6 +823,10 @@ export function analyzeQualification(input: {
       partnerStrength === null && opponentStrength === null
         ? null
         : clamp((partnerStrength ?? 0) - (opponentStrength ?? 0), -1, 1);
+    const allianceCarryRisk =
+      adjustedPerformance === null || partnerStrength === null
+        ? null
+        : clamp(partnerStrength - adjustedPerformance, -1, 1);
     const foulReliance = foulRelianceValues.get(team.key) ?? null;
     const foulPenalty =
       foulReliance === null ? 0 : clamp(foulReliance / 0.24, 0, 1);
@@ -822,29 +855,72 @@ export function analyzeQualification(input: {
       normalizedTotalRankingPoints.get(team.key) ?? null;
     const rankingTiebreaker = normalizedTiebreakers.get(team.key) ?? null;
     const districtPointSignal = normalizedDistrictPoints.get(team.key) ?? null;
+    const volatilityPenalty =
+      scoringCeiling === null || scoringFloor === null
+        ? null
+        : clamp((scoringCeiling - scoringFloor) / 2, 0, 1);
+    const resumeStrength = averageSignals([
+      rankingSignal,
+      rankingScoreSignal,
+      totalRankingPointSignal,
+      rankingTiebreaker,
+      winRateSignal,
+    ]);
+    const underlyingStrength = averageSignals([
+      adjustedPerformance,
+      normalizedOprs.get(team.key) ?? null,
+      normalizedCcwms.get(team.key) ?? null,
+      marginStrength,
+      normalizedAllianceScores.get(team.key) ?? null,
+      cleanScoring,
+      defensiveResistance,
+      componentSignals.breadthSignals.get(team.key) ?? null,
+    ]);
+    const scoringStrength = averageSignals([
+      scorePotential,
+      cleanScoring,
+      autonomousImpact,
+      endgameImpact,
+      componentSignals.autoSignals.get(team.key) ?? null,
+      componentSignals.endgameSignals.get(team.key) ?? null,
+      scoringCeiling,
+    ]);
+    const stabilityStrength = averageSignals([
+      consistency,
+      scoringFloor,
+      defensiveResistance,
+      volatilityPenalty === null ? null : clamp(-volatilityPenalty, -1, 0),
+    ]);
+    const ceilingStrength = averageSignals([
+      scoringCeiling,
+      scorePotential,
+      marginStrength,
+      autonomousImpact,
+      endgameImpact,
+    ]);
+    const scheduleAdjustedStrength = averageSignals([
+      scheduleDifficulty,
+      underseedSignal,
+      defensiveResistance,
+      allianceCarryRisk === null ? null : clamp(-allianceCarryRisk, -1, 1),
+      clamp(-inflationRisk, -1, 1),
+    ]);
 
     const rawSignal = clamp(
-      (adjustedPerformance ?? 0) * 0.28 +
-        (winRateSignal ?? 0) * 0.11 +
-        (scorePotential ?? 0) * 0.1 +
-        (cleanScoring ?? 0) * 0.08 +
-        (scoringCeiling ?? 0) * 0.05 +
-        (scoringFloor ?? 0) * 0.06 +
-        (autonomousImpact ?? 0) * 0.05 +
-        (endgameImpact ?? 0) * 0.05 +
-        (trend ?? 0) * 0.07 +
-        (consistency ?? 0) * 0.07 +
-        (scheduleDifficulty ?? 0) * 0.06 +
-        (rankingSignal ?? 0) * 0.04 * rankTrust +
-        (rankingScoreSignal ?? 0) * 0.03 * rankTrust +
-        (totalRankingPointSignal ?? 0) * 0.03 * rankTrust +
-        (rankingTiebreaker ?? 0) * 0.02 * rankTrust +
-        (underseedSignal ?? 0) * 0.05 +
-        (districtPointSignal ?? 0) * 0.02 -
+      (underlyingStrength ?? 0) * 0.27 +
+        (resumeStrength ?? 0) * 0.12 * rankTrust +
+        (scoringStrength ?? 0) * 0.14 +
+        (stabilityStrength ?? 0) * 0.11 +
+        (ceilingStrength ?? 0) * 0.1 +
+        (scheduleAdjustedStrength ?? 0) * 0.13 +
+        (trend ?? 0) * 0.05 +
+        (districtPointSignal ?? 0) * 0.03 +
+        (underseedSignal ?? 0) * 0.03 -
         Math.max(0, inflationRisk) * 0.08 -
-        foulPenalty * 0.05,
-      -1.5,
-      1.5,
+        foulPenalty * 0.05 -
+        Math.max(0, allianceCarryRisk ?? 0) * 0.04,
+      -1.6,
+      1.6,
     );
 
     rawSignals.set(team.key, rawSignal);
@@ -894,7 +970,10 @@ export function analyzeQualification(input: {
       partnerStrength,
       opponentStrength,
       adjustedPerformance,
+      marginStrength,
       scorePotential,
+      defensiveResistance,
+      allianceCarryRisk,
       cleanScoring,
       scoringCeiling,
       scoringFloor,
@@ -907,11 +986,19 @@ export function analyzeQualification(input: {
       consistency,
       rankDelta,
       inflationRisk,
+      breakdown: {
+        resumeStrength,
+        underlyingStrength,
+        scoringStrength,
+        stabilityStrength,
+        ceilingStrength,
+        scheduleAdjustedStrength,
+      },
       baseConfidence,
     });
   }
 
-  const normalizedSignals = normalizeDistribution(rawSignals, 1.12);
+  const normalizedSignals = normalizeDistribution(rawSignals, 1.02);
   const results = new Map<string, QualificationMetrics>();
 
   for (const team of teams) {
@@ -919,7 +1006,7 @@ export function analyzeQualification(input: {
     const confidence = metrics.baseConfidence;
     const normalizedSignal =
       normalizedSignals.get(team.key) ?? metrics.adjustedPerformance ?? 0;
-    const dampedSignal = normalizedSignal * (0.35 + confidence * 0.65);
+    const dampedSignal = normalizedSignal * (0.22 + confidence * 0.78);
     const score = roundTo(clamp(dampedSignal * 10, -10, 10), 1);
 
     results.set(team.key, {

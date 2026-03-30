@@ -1,4 +1,9 @@
-import type { AnalysisTab, Locale, TeamScore } from "@/lib/types";
+import type {
+  AnalysisTab,
+  Locale,
+  PlayoffFinish,
+  TeamScore,
+} from "@/lib/types";
 
 import {
   formatConfidence,
@@ -6,6 +11,84 @@ import {
   formatRecord,
   getPlayoffPositionText,
 } from "@/lib/presenters";
+
+type InsightCandidate = {
+  group: string;
+  weight: number;
+  text: string;
+};
+
+function pushInsight(
+  candidates: InsightCandidate[],
+  group: string,
+  weight: number,
+  text: string | null,
+) {
+  if (!text) {
+    return;
+  }
+
+  candidates.push({ group, weight, text });
+}
+
+function selectInsightTexts(
+  mandatory: string[],
+  candidates: InsightCandidate[],
+  trailing: string[],
+  limit: number,
+): string[] {
+  const selected = [...mandatory];
+  const usedGroups = new Set<string>();
+
+  for (const candidate of candidates.sort((left, right) => right.weight - left.weight)) {
+    if (selected.length >= limit - trailing.length) {
+      break;
+    }
+
+    if (usedGroups.has(candidate.group)) {
+      continue;
+    }
+
+    usedGroups.add(candidate.group);
+    selected.push(candidate.text);
+  }
+
+  return [...selected, ...trailing].slice(0, limit);
+}
+
+function getZhAdvancementLabel(finish: PlayoffFinish): string {
+  switch (finish) {
+    case "champion":
+      return "冠軍";
+    case "finalist":
+      return "亞軍";
+    case "semifinalist":
+      return "四強";
+    case "quarterfinalist":
+      return "八強";
+    case "octofinalist":
+      return "十六強";
+    default:
+      return "尚未定型";
+  }
+}
+
+function getEnAdvancementLabel(finish: PlayoffFinish): string {
+  switch (finish) {
+    case "champion":
+      return "champion";
+    case "finalist":
+      return "finalist";
+    case "semifinalist":
+      return "semifinalist";
+    case "quarterfinalist":
+      return "quarterfinalist";
+    case "octofinalist":
+      return "octofinalist";
+    default:
+      return "not settled";
+  }
+}
 
 function getZhQualificationInsights(
   team: TeamScore,
@@ -18,59 +101,123 @@ function getZhQualificationInsights(
   const underseedSignal = team.calibration.underseedSignal ?? 0;
   const scheduleAdvantage = team.calibration.scheduleAdvantage ?? 0;
   const inflationRisk = qualification.inflationRisk ?? 0;
-
-  const line1 =
+  const underlyingStrength = qualification.breakdown.underlyingStrength ?? 0;
+  const resumeStrength = qualification.breakdown.resumeStrength ?? 0;
+  const scoringStrength = qualification.breakdown.scoringStrength ?? 0;
+  const stabilityStrength = qualification.breakdown.stabilityStrength ?? 0;
+  const scheduleAdjustedStrength =
+    qualification.breakdown.scheduleAdjustedStrength ?? 0;
+  const carryRisk = qualification.allianceCarryRisk ?? 0;
+  const trend = qualification.trend ?? 0;
+  const confidence = formatConfidence(qualification.confidence);
+  const ceilingGap =
+    qualification.scoringCeiling !== null && qualification.scoringFloor !== null
+      ? qualification.scoringCeiling - qualification.scoringFloor
+      : null;
+  const summary =
     rank !== null && rankingScore !== null && totalRankingPoints !== null
-      ? `排名第${rank}，排名分 ${formatNumber(rankingScore)}、總排名分 ${formatNumber(totalRankingPoints)}。`
+      ? `排名第${rank}，戰績 ${formatRecord(qualification.record)}，排名分 ${formatNumber(rankingScore)}，總排名分 ${formatNumber(totalRankingPoints)}。`
       : rank !== null && rankingScore !== null
-        ? `排名第${rank}，排名分 ${formatNumber(rankingScore)}。`
+        ? `排名第${rank}，戰績 ${formatRecord(qualification.record)}，排名分 ${formatNumber(rankingScore)}。`
         : rank !== null
           ? `排名第${rank}，戰績 ${formatRecord(qualification.record)}。`
           : `戰績 ${formatRecord(qualification.record)}，但排位資料不完整。`;
+  const candidates: InsightCandidate[] = [];
 
-  const line2 =
-    scheduleAdvantage >= 0.25 && (qualification.partnerStrength ?? 0) >= 0.12
-      ? "賽程偏甜，隊友偏硬、對手偏軟。"
-      : (qualification.scheduleDifficulty ?? 0) >= 0.24 &&
-          (qualification.opponentStrength ?? 0) >= 0.14
-        ? "賽程偏硬，對手偏強。"
-        : (qualification.partnerStrength ?? 0) >= 0.22
-          ? "隊友火力不差，帳面成績有被墊高。"
-          : (qualification.opponentStrength ?? 0) >= 0.2
-            ? "對手不弱，排位可能比內容更保守。"
-            : "賽程大致正常。";
+  pushInsight(
+    candidates,
+    "calibration",
+    0.98,
+    inflationRisk >= 0.46
+      ? "名次明顯灌水，底層內容撐不起這個排位。"
+      : inflationRisk >= 0.32
+        ? "名次偏漂亮，這張排位要先打折。"
+        : underseedSignal >= 0.46
+          ? "名次偏低，內容比排位更強。"
+          : underseedSignal >= 0.28
+            ? "排位低估了，底層數據還沒完全反映出來。"
+            : resumeStrength - underlyingStrength >= 0.24
+              ? "履歷比內容好看，排位可信度普通。"
+              : underlyingStrength - resumeStrength >= 0.24
+                ? "內容比履歷更硬，名次還沒追上。"
+                : rankingScore !== null && totalRankingPoints !== null && rankingScore >= 4
+                  ? "排名分和總排名分都站得住，不只是名次好看。"
+                  : "排位和底層內容大致一致。",
+  );
 
-  const line3 =
-    inflationRisk >= 0.34
-      ? "名次比內容漂亮，這張排位要打折。"
-      : underseedSignal >= 0.28
-        ? "名次壓低了，底層內容比排位更硬。"
-        : qualification.rankDelta !== null && Math.abs(qualification.rankDelta) >= 0.24
-          ? "名次和底層數據有落差。"
-          : rankingScore !== null && totalRankingPoints !== null && rankingScore >= 4
-            ? "排名分和總排名分都夠硬，不只是名次好看。"
-            : "名次和底層數據大致對得上。";
+  pushInsight(
+    candidates,
+    "schedule",
+    0.92,
+    scheduleAdvantage >= 0.3 && carryRisk >= 0.2
+      ? "賽程偏甜，隊友又夠硬，勝場有被墊高。"
+      : scheduleAdvantage >= 0.24
+        ? "對手偏軟，這張戰績不能照單全收。"
+        : (qualification.scheduleDifficulty ?? 0) >= 0.26 &&
+            (qualification.opponentStrength ?? 0) >= 0.18
+          ? "對手偏強，這份成績其實比較難打。"
+          : carryRisk >= 0.28
+            ? "隊友紅利吃得不小，單看戰績會高估。"
+            : scheduleAdjustedStrength >= 0.22
+              ? "賽程修正後反而更站得住。"
+              : "賽程大致正常，沒有太明顯吃表。",
+  );
 
-  const line4 =
-    (qualification.foulReliance ?? 0) >= 0.22
-      ? "犯規分吃得重，純得分沒那麼硬。"
-      : (qualification.cleanScoring ?? 0) >= 0.3 &&
+  pushInsight(
+    candidates,
+    "scoring",
+    0.88,
+    (qualification.foulReliance ?? 0) >= 0.28
+      ? "犯規分吃很重，內容沒比分那麼漂亮。"
+      : (qualification.cleanScoring ?? 0) >= 0.28 &&
           (qualification.autonomousImpact ?? 0) >= 0.22 &&
           (qualification.endgameImpact ?? 0) >= 0.22
-        ? "純得分夠硬，自主和終局都有輸出。"
-        : qualification.scoringCeiling !== null &&
-            qualification.scoringFloor !== null &&
-            qualification.scoringCeiling - qualification.scoringFloor >= 0.55
-          ? "波動很大，上下限差得明顯。"
-          : isEventFinished && (qualification.trend ?? 0) >= 0.22
-            ? "後段有拉起來，收尾比前段好。"
-            : isEventFinished && (qualification.trend ?? 0) <= -0.22
-              ? "後段有掉速，收尾不如前段。"
-              : (qualification.consistency ?? 0) >= 0.24
-                ? "表現穩，失手場次不多。"
-                : `資料信心 ${formatConfidence(qualification.confidence)}。`;
+        ? "自主、正規得分、尾段都有量，得分結構很完整。"
+        : (qualification.defensiveResistance ?? 0) >= 0.24 &&
+            (qualification.marginStrength ?? 0) >= 0.18
+          ? "攻守都站得住，平均分差也撐得住。"
+          : (qualification.autonomousImpact ?? 0) >= 0.3
+            ? "自主段明顯有料，開局就能搶分。"
+            : (qualification.endgameImpact ?? 0) >= 0.3
+              ? "尾段拿分很關鍵，收尾能力不差。"
+              : scoringStrength >= 0.2
+                ? "主動得分能力不差，內容不是靠運氣。"
+                : "得分結構普通，沒有特別突出的段落。",
+  );
 
-  return [line1, line2, line3, line4];
+  pushInsight(
+    candidates,
+    "profile",
+    0.82,
+    stabilityStrength >= 0.28 && (qualification.scoringFloor ?? 0) >= 0.16
+      ? "下限穩，場場都能交出基本盤。"
+      : ceilingGap !== null && ceilingGap >= 0.72
+        ? "上限有，但波動也大。"
+        : (qualification.consistency ?? 0) >= 0.22
+          ? "整體波動不大，輸出算穩。"
+          : (qualification.marginStrength ?? 0) <= -0.24
+            ? "常常打成逆風，內容不像表面那麼舒服。"
+            : "穩定度一般，偶爾會飄。",
+  );
+
+  pushInsight(
+    candidates,
+    "trajectory",
+    0.76,
+    isEventFinished && trend >= 0.24
+      ? "後半段明顯拉起來，狀態是往上走的。"
+      : isEventFinished && trend <= -0.24
+        ? "後半段有掉速，尾盤沒有守住。"
+        : (qualification.districtPointTotal ?? 0) >= 20
+          ? "區域積分也不差，不只靠這一場衝起來。"
+          : qualification.matchesPlayed >= 9
+            ? "樣本量夠，這個輪廓已經算清楚。"
+            : "樣本還在累積，別急著把話說死。",
+  );
+
+  const trailing = [`資料信心 ${confidence}。`];
+
+  return selectInsightTexts([summary], candidates, trailing, 6);
 }
 
 function getZhPlayoffInsights(team: TeamScore): string[] {
@@ -78,45 +225,82 @@ function getZhPlayoffInsights(team: TeamScore): string[] {
 
   if (!playoff) {
     return [
-      "這隊還沒有淘汰賽資料。",
-      "沒有聯盟脈絡，就沒有淘汰賽判讀。",
-      "先等這隊真的進淘汰賽再說。",
+      "還沒有淘汰賽資料。",
+      "沒有聯盟脈絡，就不能硬判淘汰賽強度。",
+      "等真正進入聯盟名單再看。",
+      "目前這頁沒有更多可分析的內容。",
     ];
   }
 
   const positionText = getPlayoffPositionText("zh-TW", playoff);
-  const line1 =
-    playoff.positionCode && positionText
-      ? `${playoff.positionCode}，${positionText}。`
-      : playoff.positionCode
-        ? `${playoff.positionCode}，已進入淘汰賽名單。`
-        : "聯盟位置資料不完整。";
+  const candidates: InsightCandidate[] = [];
+  const summary = playoff.positionCode && positionText
+    ? `${playoff.positionCode}，${positionText}，淘汰賽 ${formatRecord(playoff.record)}，結果 ${getZhAdvancementLabel(playoff.advancement)}。`
+    : playoff.positionCode
+      ? `${playoff.positionCode}，淘汰賽 ${formatRecord(playoff.record)}，結果 ${getZhAdvancementLabel(playoff.advancement)}。`
+      : `淘汰賽 ${formatRecord(playoff.record)}，結果 ${getZhAdvancementLabel(playoff.advancement)}。`;
 
-  const line2 =
-    playoff.matchesPlayed === 0
-      ? "聯盟選完了，但淘汰賽還沒真正開打。"
-      : (playoff.score ?? 0) >= 2.2
-        ? `淘汰賽 ${formatRecord(playoff.record)}，聯盟內容也撐得住。`
-        : (playoff.score ?? 0) <= -1.6
-          ? `淘汰賽 ${formatRecord(playoff.record)}，聯盟抗壓不夠。`
-          : `淘汰賽 ${formatRecord(playoff.record)}，有內容但不到輾壓。`;
+  pushInsight(
+    candidates,
+    "control",
+    0.92,
+    (playoff.breakdown.allianceControl ?? 0) >= 0.42
+      ? "聯盟內容夠硬，不只是撿到晉級。"
+      : (playoff.breakdown.allianceControl ?? 0) <= -0.28
+        ? "聯盟控制力不夠，壓力一上來就鬆了。"
+        : (playoff.marginStrength ?? 0) >= 0.22
+          ? "平均分差站得住，贏得不算勉強。"
+          : "有內容，但離輾壓還有一段。",
+  );
 
-  const line3 =
-    team.qualification.score >= 2 && (playoff.score ?? 0) >= 1.8
-      ? "積分賽硬度和淘汰賽聯盟表現對得上。"
-      : team.qualification.score < 0 && (playoff.score ?? 0) >= 1.4
-        ? "這波淘汰賽加分，聯盟脈絡重於個體內容。"
+  pushInsight(
+    candidates,
+    "seed",
+    0.88,
+    (playoff.upsetSignal ?? 0) >= 0.34
+      ? "以種子來看算超額演出，聯盟有打穿預期。"
+      : (playoff.upsetSignal ?? 0) <= -0.28
+        ? "以種子來看沒有打到該有的深度。"
+        : (playoff.breakdown.seedStrength ?? 0) >= 0.45
+          ? "高種子進場，聯盟本來就有基本盤。"
+          : playoff.seed !== null
+            ? "種子普通，能走多遠主要看聯盟臨場。"
+            : "這組聯盟沒有完整種子資料。",
+  );
+
+  pushInsight(
+    candidates,
+    "relation",
+    0.84,
+    team.qualification.score >= 2 && (playoff.score ?? 0) >= 2
+      ? "積分賽內容和淘汰賽結果對得上。"
+      : team.qualification.score < 0 && (playoff.score ?? 0) >= 1.6
+        ? "這波淘汰賽加成比較像聯盟帶起來的。"
         : team.qualification.score >= 2 && (playoff.score ?? 0) < 0
-          ? "積分賽看起來不差，但聯盟兌現度不高。"
-          : "這裡看的是聯盟脈絡，不是單人神話。";
+          ? "積分賽夠硬，但聯盟兌現度不高。"
+          : "這頁看的是聯盟脈絡，不是單兵神話。",
+  );
 
-  const line4 = playoff.isComplete
-    ? "這個聯盟已封盤，淘汰賽信心就是 100%。"
-    : playoff.matchesPlayed <= 1
-      ? "淘汰賽樣本還太薄。"
-      : `淘汰賽信心 ${formatConfidence(playoff.confidence)}。`;
+  pushInsight(
+    candidates,
+    "stability",
+    0.74,
+    playoff.isBackup
+      ? "這隊是備援，樣本本來就更吃聯盟情境。"
+      : (playoff.consistency ?? 0) >= 0.22
+        ? "聯盟波動不大，輸贏輪廓算清楚。"
+        : playoff.matchesPlayed <= 1
+          ? "樣本很薄，一兩場還不夠定生死。"
+          : "聯盟波動偏大，單看戰績不夠。",
+  );
 
-  return [line1, line2, line3, line4];
+  const trailing = [
+    playoff.isComplete
+      ? "聯盟賽程已封盤，淘汰賽信心 100%。"
+      : `淘汰賽信心 ${formatConfidence(playoff.confidence)}。`,
+  ];
+
+  return selectInsightTexts([summary], candidates, trailing, 5);
 }
 
 function getEnQualificationInsights(
@@ -130,59 +314,123 @@ function getEnQualificationInsights(
   const underseedSignal = team.calibration.underseedSignal ?? 0;
   const scheduleAdvantage = team.calibration.scheduleAdvantage ?? 0;
   const inflationRisk = qualification.inflationRisk ?? 0;
-
-  const line1 =
+  const underlyingStrength = qualification.breakdown.underlyingStrength ?? 0;
+  const resumeStrength = qualification.breakdown.resumeStrength ?? 0;
+  const scoringStrength = qualification.breakdown.scoringStrength ?? 0;
+  const stabilityStrength = qualification.breakdown.stabilityStrength ?? 0;
+  const scheduleAdjustedStrength =
+    qualification.breakdown.scheduleAdjustedStrength ?? 0;
+  const carryRisk = qualification.allianceCarryRisk ?? 0;
+  const trend = qualification.trend ?? 0;
+  const confidence = formatConfidence(qualification.confidence);
+  const ceilingGap =
+    qualification.scoringCeiling !== null && qualification.scoringFloor !== null
+      ? qualification.scoringCeiling - qualification.scoringFloor
+      : null;
+  const summary =
     rank !== null && rankingScore !== null && totalRankingPoints !== null
-      ? `Rank ${rank}, ranking score ${formatNumber(rankingScore)}, total RP ${formatNumber(totalRankingPoints)}.`
+      ? `Rank ${rank}, record ${formatRecord(qualification.record)}, ranking score ${formatNumber(rankingScore)}, total RP ${formatNumber(totalRankingPoints)}.`
       : rank !== null && rankingScore !== null
-        ? `Rank ${rank}, ranking score ${formatNumber(rankingScore)}.`
+        ? `Rank ${rank}, record ${formatRecord(qualification.record)}, ranking score ${formatNumber(rankingScore)}.`
         : rank !== null
           ? `Rank ${rank}, record ${formatRecord(qualification.record)}.`
           : `Record ${formatRecord(qualification.record)}, but the ranking snapshot is incomplete.`;
+  const candidates: InsightCandidate[] = [];
 
-  const line2 =
-    scheduleAdvantage >= 0.25 && (qualification.partnerStrength ?? 0) >= 0.12
-      ? "The schedule was soft, with stronger partners and weaker opponents."
-      : (qualification.scheduleDifficulty ?? 0) >= 0.24 &&
-          (qualification.opponentStrength ?? 0) >= 0.14
-        ? "The schedule was hard, so the result carries more weight."
-        : (qualification.partnerStrength ?? 0) >= 0.22
-          ? "Partner help was meaningful."
-          : (qualification.opponentStrength ?? 0) >= 0.2
-            ? "The opposition was real, so the seed may undersell the team."
-            : "The schedule looks fairly normal.";
+  pushInsight(
+    candidates,
+    "calibration",
+    0.98,
+    inflationRisk >= 0.46
+      ? "The seed is clearly inflated and the underlying play does not fully back it."
+      : inflationRisk >= 0.32
+        ? "The seed looks a bit prettier than the play underneath."
+        : underseedSignal >= 0.46
+          ? "The seed is too low and the underlying data points higher."
+          : underseedSignal >= 0.28
+            ? "The team looks slightly underseeded."
+            : resumeStrength - underlyingStrength >= 0.24
+              ? "The resume looks better than the underlying play."
+              : underlyingStrength - resumeStrength >= 0.24
+                ? "The underlying play is stronger than the current seed."
+                : rankingScore !== null && totalRankingPoints !== null && rankingScore >= 4
+                  ? "Ranking score and total RP both support the seed."
+                  : "The seed and the underlying data mostly agree.",
+  );
 
-  const line3 =
-    inflationRisk >= 0.34
-      ? "The seed looks better than the underlying play."
-      : underseedSignal >= 0.28
-        ? "The seed looks lower than the underlying play."
-        : qualification.rankDelta !== null && Math.abs(qualification.rankDelta) >= 0.24
-          ? "The ranking and the underlying data do not fully agree."
-          : rankingScore !== null && totalRankingPoints !== null && rankingScore >= 4
-            ? "The ranking score and total RP both support the seed."
-            : "The ranking and the underlying data mostly agree.";
+  pushInsight(
+    candidates,
+    "schedule",
+    0.92,
+    scheduleAdvantage >= 0.3 && carryRisk >= 0.2
+      ? "The schedule was soft, partner help was real, and the win column got a boost."
+      : scheduleAdvantage >= 0.24
+        ? "Opposition quality was soft, so the record needs context."
+        : (qualification.scheduleDifficulty ?? 0) >= 0.26 &&
+            (qualification.opponentStrength ?? 0) >= 0.18
+          ? "The schedule was hard, which makes the result more credible."
+          : carryRisk >= 0.28
+            ? "Partner help mattered a lot."
+            : scheduleAdjustedStrength >= 0.22
+              ? "The team looks better after schedule correction."
+              : "The schedule looks fairly normal.",
+  );
 
-  const line4 =
-    (qualification.foulReliance ?? 0) >= 0.22
+  pushInsight(
+    candidates,
+    "scoring",
+    0.88,
+    (qualification.foulReliance ?? 0) >= 0.28
       ? "Too much of the score came from opponent fouls."
-      : (qualification.cleanScoring ?? 0) >= 0.3 &&
+      : (qualification.cleanScoring ?? 0) >= 0.28 &&
           (qualification.autonomousImpact ?? 0) >= 0.22 &&
           (qualification.endgameImpact ?? 0) >= 0.22
-        ? "Clean scoring is solid and both ends of the match matter."
-        : qualification.scoringCeiling !== null &&
-            qualification.scoringFloor !== null &&
-            qualification.scoringCeiling - qualification.scoringFloor >= 0.55
-          ? "The ceiling is real, but the floor moves around."
-          : isEventFinished && (qualification.trend ?? 0) >= 0.22
-            ? "The back half of the event was stronger than the front half."
-            : isEventFinished && (qualification.trend ?? 0) <= -0.22
-              ? "The team faded late."
-              : (qualification.consistency ?? 0) >= 0.24
-                ? "The match-to-match profile stayed steady."
-                : `Confidence is ${formatConfidence(qualification.confidence)}.`;
+        ? "Auto, clean scoring, and endgame all matter here."
+        : (qualification.defensiveResistance ?? 0) >= 0.24 &&
+            (qualification.marginStrength ?? 0) >= 0.18
+          ? "Both sides of the ball look solid, and the average margin agrees."
+          : (qualification.autonomousImpact ?? 0) >= 0.3
+            ? "Auto is a real differentiator."
+            : (qualification.endgameImpact ?? 0) >= 0.3
+              ? "Endgame contribution is doing real work."
+              : scoringStrength >= 0.2
+                ? "The team can generate real points without leaning on luck."
+                : "The scoring profile is fairly ordinary.",
+  );
 
-  return [line1, line2, line3, line4];
+  pushInsight(
+    candidates,
+    "profile",
+    0.82,
+    stabilityStrength >= 0.28 && (qualification.scoringFloor ?? 0) >= 0.16
+      ? "The floor is stable and the baseline shows up every match."
+      : ceilingGap !== null && ceilingGap >= 0.72
+        ? "The ceiling is real, but the volatility comes with it."
+        : (qualification.consistency ?? 0) >= 0.22
+          ? "The match-to-match profile stays fairly steady."
+          : (qualification.marginStrength ?? 0) <= -0.24
+            ? "Too many matches turned into uphill work."
+            : "Stability is only average.",
+  );
+
+  pushInsight(
+    candidates,
+    "trajectory",
+    0.76,
+    isEventFinished && trend >= 0.24
+      ? "The back half of the event was stronger than the front half."
+      : isEventFinished && trend <= -0.24
+        ? "The team faded late."
+        : (qualification.districtPointTotal ?? 0) >= 20
+          ? "District points say this is not just a one-week spike."
+          : qualification.matchesPlayed >= 9
+            ? "The sample is large enough to trust the outline."
+            : "The sample is still a little thin.",
+  );
+
+  const trailing = [`Confidence sits at ${confidence}.`];
+
+  return selectInsightTexts([summary], candidates, trailing, 6);
 }
 
 function getEnPlayoffInsights(team: TeamScore): string[] {
@@ -190,45 +438,82 @@ function getEnPlayoffInsights(team: TeamScore): string[] {
 
   if (!playoff) {
     return [
-      "No playoff data exists for this team yet.",
-      "No alliance context means no elim read.",
-      "Wait until the team actually reaches the bracket.",
+      "No playoff data exists yet.",
+      "Without alliance context, this tab should stay empty.",
+      "Wait until the team actually enters the bracket.",
+      "There is no clean playoff read yet.",
     ];
   }
 
   const positionText = getPlayoffPositionText("en", playoff);
-  const line1 =
-    playoff.positionCode && positionText
-      ? `${playoff.positionCode}, ${positionText}.`
-      : playoff.positionCode
-        ? `${playoff.positionCode}, inside the playoff field.`
-        : "Alliance slot data is incomplete.";
+  const candidates: InsightCandidate[] = [];
+  const summary = playoff.positionCode && positionText
+    ? `${playoff.positionCode}, ${positionText}, playoff record ${formatRecord(playoff.record)}, finish ${getEnAdvancementLabel(playoff.advancement)}.`
+    : playoff.positionCode
+      ? `${playoff.positionCode}, playoff record ${formatRecord(playoff.record)}, finish ${getEnAdvancementLabel(playoff.advancement)}.`
+      : `Playoff record ${formatRecord(playoff.record)}, finish ${getEnAdvancementLabel(playoff.advancement)}.`;
 
-  const line2 =
-    playoff.matchesPlayed === 0
-      ? "Alliance selection is done, but the bracket has not really started."
-      : (playoff.score ?? 0) >= 2.2
-        ? `Playoff record ${formatRecord(playoff.record)}, and the alliance backed it up.`
-        : (playoff.score ?? 0) <= -1.6
-          ? `Playoff record ${formatRecord(playoff.record)}, but the alliance cracked under pressure.`
-          : `Playoff record ${formatRecord(playoff.record)}, with substance but not domination.`;
+  pushInsight(
+    candidates,
+    "control",
+    0.92,
+    (playoff.breakdown.allianceControl ?? 0) >= 0.42
+      ? "The alliance had real control and did more than just survive."
+      : (playoff.breakdown.allianceControl ?? 0) <= -0.28
+        ? "The alliance cracked once the pressure rose."
+        : (playoff.marginStrength ?? 0) >= 0.22
+          ? "The average margin supports the result."
+          : "There was substance, but not domination.",
+  );
 
-  const line3 =
-    team.qualification.score >= 2 && (playoff.score ?? 0) >= 1.8
-      ? "Qualification strength and playoff alliance context agree."
-      : team.qualification.score < 0 && (playoff.score ?? 0) >= 1.4
+  pushInsight(
+    candidates,
+    "seed",
+    0.88,
+    (playoff.upsetSignal ?? 0) >= 0.34
+      ? "Relative to seed, this was an over-performance."
+      : (playoff.upsetSignal ?? 0) <= -0.28
+        ? "Relative to seed, the alliance came up short."
+        : (playoff.breakdown.seedStrength ?? 0) >= 0.45
+          ? "A high seed gave the alliance a strong starting point."
+          : playoff.seed !== null
+            ? "The seed was ordinary, so the bracket path mattered."
+            : "Seed data is incomplete for this alliance.",
+  );
+
+  pushInsight(
+    candidates,
+    "relation",
+    0.84,
+    team.qualification.score >= 2 && (playoff.score ?? 0) >= 2
+      ? "Qualification strength and playoff context point in the same direction."
+      : team.qualification.score < 0 && (playoff.score ?? 0) >= 1.6
         ? "This playoff bump looks more alliance-driven than individual."
         : team.qualification.score >= 2 && (playoff.score ?? 0) < 0
-          ? "The alliance cashed out less than qualification suggested."
-          : "This tab grades alliance context, not solo mythology.";
+          ? "Qualification looked stronger than the bracket result."
+          : "This tab grades alliance context, not solo mythology.",
+  );
 
-  const line4 = playoff.isComplete
-    ? "This alliance is done, so playoff confidence is 100%."
-    : playoff.matchesPlayed <= 1
-      ? "The playoff sample is still thin."
-      : `Playoff confidence is ${formatConfidence(playoff.confidence)}.`;
+  pushInsight(
+    candidates,
+    "stability",
+    0.74,
+    playoff.isBackup
+      ? "This team entered as a backup, so the sample is even more alliance-dependent."
+      : (playoff.consistency ?? 0) >= 0.22
+        ? "The alliance profile stayed fairly steady."
+        : playoff.matchesPlayed <= 1
+          ? "The playoff sample is still thin."
+          : "The alliance was hard to read from match to match.",
+  );
 
-  return [line1, line2, line3, line4];
+  const trailing = [
+    playoff.isComplete
+      ? "The alliance is done, so playoff confidence is 100%."
+      : `Playoff confidence sits at ${formatConfidence(playoff.confidence)}.`,
+  ];
+
+  return selectInsightTexts([summary], candidates, trailing, 5);
 }
 
 export function buildTeamInsights(
